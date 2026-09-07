@@ -1,5 +1,8 @@
 // Invoices page — ใหม่ตาม spec
-// - Columns: Job no | invno | invdate | ชื่อโครงการ | Balance | ผู้รับโอนสิทธิ | ภาระหนี้ | สุทธิ | สถานะ
+// - Columns: เลข IV | วันที่ IV | รายละเอียด/ลูกค้า | ยอดค้าง | สุทธิ | วันคาดรับ | สถานะ
+//   ★ BIGDREAM ไม่มีงานโครงการ/ไม่มีการโอนสิทธิ์ → ตัด Job No. · ผู้รับโอนสิทธิ์ · ภาระหนี้
+//     ออกจากตารางและไฟล์ส่งออกแล้ว (ฟิลด์ยังอยู่ใน schema + สูตร netExpected ยังหัก debt
+//     ตามเดิม ซึ่งเป็น 0 เสมอ — ถ้าวันหนึ่งมีงานโครงการ เอากลับมาได้โดยไม่ต้องย้ายข้อมูล)
 // - 4 statuses: pending_inspection / tracking / issue / paid
 // - Follow-up log (รอบติดตาม) + ผู้ติดต่อ + เบอร์โทร + คาดรับเงิน + รับจริง (วันที่/จำนวน/บัญชี)
 // - Paste RAW_IV_OUTSTANDING (TSV/JSON) → ระบบหาว่าใบไหนใหม่ → import เฉพาะใหม่
@@ -676,13 +679,13 @@ function InvoicesPage({ data, setData, toast }) {
           <ExportButton
             rows={filtered}
             columns={[
-              { key: 'jobNo',           label: 'JOB NO.' },
+              // ★ ตัด JOB NO. / ผู้รับโอนสิทธิ์ / ภาระหนี้ ออก — BIGDREAM ไม่มีงานโครงการ
+              //   และเพิ่ม "ลูกค้า" ซึ่งเป็นข้อมูลที่ใช้จริงแทน
               { key: 'ivNo',            label: 'เลขที่ IV' },
               { key: 'invoiceDate',     label: 'วันที่ออก IV',   type: 'date' },
-              { key: 'projectName',     label: 'ชื่อโครงการ' },
+              { key: 'customer',        label: 'ลูกค้า' },
+              { key: 'projectName',     label: 'รายละเอียด' },
               { key: 'balance',         label: 'ยอดค้างชำระ', type: 'number' },
-              { key: 'assignee',        label: 'ผู้รับโอนสิทธิ์' },
-              { key: 'debt',            label: 'ภาระหนี้',   type: 'number' },
               { key: 'netExpected',     label: 'คาดรับสุทธิ', type: 'number' },
               { key: 'expectedReceive', label: 'วันคาดรับเงิน', type: 'date' },
               { key: 'status',          label: 'สถานะ' },
@@ -967,20 +970,20 @@ function InvoicesPage({ data, setData, toast }) {
                     title="เลือกทั้งหมดที่แสดงอยู่" style={{ cursor: 'pointer' }} />
                 </th>
               )}
-              <IvColHeader label="Job No."         sortKey="jobNo"           colKey="jobNo"         sort={sort} sortToggle={toggle} align="center" width={fullscreen ?  82 : 76}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="เลข IV"          sortKey="ivNo"            colKey="ivNo"            sort={sort} sortToggle={toggle} align="center" width={fullscreen ?  98 : 92}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="วันที่ IV"        sortKey="invoiceDate"     colKey="invoiceDate"     sort={sort} sortToggle={toggle} align="center" width={fullscreen ?  92 : 84}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="ชื่อโครงการ"      sortKey="projectName"     colKey="projectName"     sort={sort} sortToggle={toggle} align="center"             colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="ยอดค้าง"     sortKey="balance"         colKey="balance"         sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 118 : 108} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="ผู้รับโอนสิทธิ์"   sortKey="assignee"        colKey="assignee"        sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 110 : 86}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="ภาระหนี้"    sortKey="debt"            colKey="debt"            sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 108 : 92}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="สุทธิ"         sortKey="netExpected"     colKey="netExpected"     sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 118 : 104} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              {/* ★ BIGDREAM ไม่มีงานโครงการและไม่มีการโอนสิทธิ์ → ตัดคอลัมน์
+                    Job No. / ผู้รับโอนสิทธิ์ / ภาระหนี้ ออก (ค่ายังอยู่ใน DB
+                    และสูตร netExpected ยังหัก debt ตามเดิม ซึ่งเป็น 0 เสมอ) */}
+              <IvColHeader label="เลข IV"          sortKey="ivNo"            colKey="ivNo"            sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 128 : 118} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="วันที่ IV"        sortKey="invoiceDate"     colKey="invoiceDate"     sort={sort} sortToggle={toggle} align="center" width={fullscreen ?  98 : 90}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="รายละเอียด / ลูกค้า" sortKey="projectName"  colKey="projectName"     sort={sort} sortToggle={toggle} align="center"             colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="ยอดค้าง"     sortKey="balance"         colKey="balance"         sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 130 : 118} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="สุทธิ"         sortKey="netExpected"     colKey="netExpected"     sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 130 : 116} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="วันที่"            sortKey="expectedReceive" colKey="expectedReceive" sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 108 : 92}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="สถานะ"            sortKey="status"          colKey="status"          sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 168 : 132} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 && <tr><td colSpan={11} className="muted" style={{ padding: 36, textAlign: 'center' }}>ไม่พบใบแจ้งหนี้</td></tr>}
+            {sorted.length === 0 && <tr><td colSpan={8} className="muted" style={{ padding: 36, textAlign: 'center' }}>ไม่พบใบแจ้งหนี้</td></tr>}
             {sorted.map(iv => (
               <tr key={iv.id}
                 style={{ cursor: 'pointer', background: (bulkMode && selected.has(iv.id)) ? 'color-mix(in oklch, var(--bad) 9%, transparent)' : undefined }}
@@ -992,20 +995,13 @@ function InvoicesPage({ data, setData, toast }) {
                   </td>
                 )}
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  <span style={{ fontFamily: 'ui-monospace', fontWeight: 700, color: 'var(--brand-700)', fontSize: 12.5 }}>{iv.jobNo}</span>
-                </td>
-                <td style={{ whiteSpace: 'nowrap' }}>
                   <span style={{ fontFamily: 'ui-monospace', fontWeight: 600, fontSize: 12.5 }}>{iv.ivNo}</span>
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(iv.invoiceDate)}</td>
                 <td style={{ overflow: 'hidden', maxWidth: 0 }}>
                   {/* Line 1: badges + project name */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
-                    {iv.invType === 'O' && (
-                      <span title="ใบแจ้งหนี้อื่นๆ (Other)" style={{ fontSize: 10, fontWeight: 700, background: '#faf5ff', color: '#6b46c1', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.03em', flexShrink: 0, border: '1px solid #d6bcfa' }}>
-                        O
-                      </span>
-                    )}
+                    {/* ป้าย "O" (ใบแจ้งหนี้นอกโครงการ) ตัดออก — BIGDREAM ไม่มีงานโครงการ ทุกใบเป็น O อยู่แล้ว */}
                     {iv.productType && (
                       <span style={{ fontSize: 10, fontWeight: 700, background: 'var(--brand-100,#e0f0ff)', color: 'var(--brand-700)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.03em', flexShrink: 0 }}>
                         {iv.productType}
@@ -1044,22 +1040,6 @@ function InvoicesPage({ data, setData, toast }) {
                   })()}
                 </td>
                 <td className="num strong" style={{ whiteSpace: 'nowrap' }}>{fmtNum(iv.balance, 0)}</td>
-                <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }} title={iv.assigneeIsOverride ? '✏️ Override โดย admin' : '📋 จากข้อมูลโครงการ'}>
-                  {iv.assignee && iv.assignee !== '—' ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                      <Badge kind="b-violet" dot={false}>{iv.assignee}</Badge>
-                      {iv.assigneeIsOverride && <span style={{ fontSize: 10, color: 'var(--brand-600)' }} title="แก้ไขโดย admin">✏️</span>}
-                    </span>
-                  ) : <span className="muted">ไม่โอน</span>}
-                </td>
-                <td className="num" style={{ whiteSpace: 'nowrap', color: iv.debt ? 'var(--bad)' : 'inherit' }} title={iv.debtIsOverride ? '✏️ Override โดย admin' : '📋 จากข้อมูลโครงการ'}>
-                  {iv.debt ? (
-                    <span>
-                      {'-' + fmtNum(iv.debt, 0)}
-                      {iv.debtIsOverride && <span style={{ fontSize: 10, color: 'var(--brand-600)', marginLeft: 3 }}>✏️</span>}
-                    </span>
-                  ) : <span className="muted">—</span>}
-                </td>
                 <td className="num" style={{ whiteSpace: 'nowrap', color: 'var(--good)', fontWeight: 700 }}>{fmtNum(iv.netExpected, 0)}</td>
                 <td style={{ whiteSpace: 'nowrap', textAlign: 'center', padding: '4px 6px' }} onClick={(e) => e.stopPropagation()}>
                   {iv.status === 'paid' ? (
@@ -1086,10 +1066,8 @@ function InvoicesPage({ data, setData, toast }) {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={(bulkMode && canDeletePage) ? 5 : 4}>รวม ({sorted.length} ใบ)</td>
+              <td colSpan={(bulkMode && canDeletePage) ? 4 : 3}>รวม ({sorted.length} ใบ)</td>
               <td className="num strong">{fmtNum(sorted.reduce((s,r)=>s+(Number(r.balance)||0), 0), 0)}</td>
-              <td></td>
-              <td className="num" style={{ color: 'var(--bad)' }}>-{fmtNum(sorted.reduce((s,r)=>s+(Number(r.debt)||0), 0), 0)}</td>
               <td className="num" style={{ color: 'var(--good)' }}>{fmtNum(sorted.reduce((s,r)=>s+(Number(r.netExpected)||0), 0), 0)}</td>
               <td colSpan={2}></td>
             </tr>
@@ -3506,13 +3484,13 @@ function IvReportStandalonePage({ data, setData, toast }) {
           <ExportButton
             rows={rows}
             columns={[
-              { key: 'jobNo',           label: 'JOB NO.' },
+              // ★ ตัด JOB NO. / ผู้รับโอนสิทธิ์ / ภาระหนี้ ออก — BIGDREAM ไม่มีงานโครงการ
+              //   และเพิ่ม "ลูกค้า" ซึ่งเป็นข้อมูลที่ใช้จริงแทน
               { key: 'ivNo',            label: 'เลขที่ IV' },
               { key: 'invoiceDate',     label: 'วันที่ออก IV',   type: 'date' },
-              { key: 'projectName',     label: 'ชื่อโครงการ' },
+              { key: 'customer',        label: 'ลูกค้า' },
+              { key: 'projectName',     label: 'รายละเอียด' },
               { key: 'balance',         label: 'ยอดค้างชำระ', type: 'number' },
-              { key: 'assignee',        label: 'ผู้รับโอนสิทธิ์' },
-              { key: 'debt',            label: 'ภาระหนี้',   type: 'number' },
               { key: 'netExpected',     label: 'คาดรับสุทธิ', type: 'number' },
               { key: 'expectedReceive', label: 'วันคาดรับเงิน', type: 'date' },
               { key: 'status',          label: 'สถานะ' },
