@@ -13,6 +13,22 @@
 //  ใช้โดย: page_bank_diary.jsx · page_data_extras.jsx · page_daily_balance.jsx
 // ---------------------------------------------------------------------------
 
+// ── ภาษีหัก ณ ที่จ่าย (WHT) บนใบแจ้งหนี้ขาย ─────────────────────────────────
+// balance ที่เก็บในระบบ = ยอดเต็ม "รวม VAT 7% แล้ว" · ลูกค้าหัก WHT จากยอดก่อน VAT
+//   ยอดก่อน VAT  = balance / 1.07
+//   WHT          = balance / 1.07 × rate
+//   คาดรับสุทธิ  = balance − WHT = balance × (1.07 − rate) / 1.07
+// BIO ฝัง rate = 1% ไว้ตายตัว (106/107) เพราะเป็นงานรับเหมา — BIGDREAM เป็นค่าบริการ
+// หัก 3% จึงย้ายมาอ่านจาก WTP_CONFIG.WHT_RATE (default 0.01 = พฤติกรรมเดิมของ BIO)
+function ivWhtRate() {
+  const r = Number((window.WTP_CONFIG || {}).WHT_RATE);
+  return (r >= 0 && r < 1) ? r : 0.01;
+}
+// ตัวคูณแปลง balance → ยอดหลังหัก WHT   (เดิมคือค่าคงที่ 106/107)
+function ivNetFactor() { return (1.07 - ivWhtRate()) / 1.07; }
+// WHT เป็นบาท จาก balance   (เดิมคือ balance / 107)
+function ivWhtOf(balance) { return (Number(balance) || 0) * ivWhtRate() / 1.07; }
+
 // ── defensive field accessors (seed shape ↔ synced UPPER shape) ───────────────
 function hpBankName(a)  { return a.BANK_NAME || a.bankName || a.bank || a.Bank || '—'; }
 function hpBankAcNo(a)  { return a.Bank_AC || a.accountNo || a.account_no || a.ACCOUNT_NO || ''; }

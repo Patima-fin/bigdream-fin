@@ -2423,11 +2423,14 @@ const _PAYABLE_DIFF_FIELDS = [
 ];
 const _PAYABLE_FIELD_BY_KEY = Object.fromEntries(_PAYABLE_DIFF_FIELDS.map(f => [f.key, f]));
 
-// แถวรายการจริง = vchno ขึ้นต้น APO/APS/APV; แถวสรุปยอด "Total By Vendor" มี vchno="0"
-// + กัน maincode="Vendor :…" / ty="Total…" หลุดเข้ามา
+// แถวรายการจริง = vchno ขึ้นต้นด้วยรหัสเอกสารเจ้าหนี้ที่รู้จัก
+//   APO/APS/APV = EXPRESS (ที่ BIO ใช้)   ·   EXP = PEAK (ที่ BIGDREAM ใช้)
+// แถวสรุปยอด "Total By Vendor" มี vchno="0" + กัน maincode="Vendor :…" / ty="Total…" หลุดเข้ามา
+// ★ ถ้าเพิ่มโปรแกรมบัญชีใหม่ ให้เติม prefix ที่นี่ ไม่งั้นแถวจะถูกทิ้งเงียบ ๆ ตอน import
+const _PAYABLE_DOC_PREFIX = /^(AP[OSV]|EXP)/i;
 function _isPayableDetailRow(o) {
   const vch = String(o.vchno || '').trim();
-  if (!/^AP[OSV]/i.test(vch)) return false;
+  if (!_PAYABLE_DOC_PREFIX.test(vch)) return false;
   if (/^Vendor\s*:/i.test(String(o.maincode || ''))) return false;
   if (/^Total/i.test(String(o.ty || '').trim()))     return false;
   return true;

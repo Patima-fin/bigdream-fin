@@ -73,7 +73,7 @@ function ivHasDebtOverride(iv) {
 Object.assign(window, { resolveAssignee, resolveDebt, resolveProjectName, ivHasAssigneeOverride, ivHasDebtOverride, ivHasProjectNameOverride });
 
 // ── ivJoinRow / ivBuildRows — ใบแจ้งหนี้ + โครงการ + ภาระหนี้ → แถวที่มี netExpected ──
-// ★ นี่คือ "จุดเดียว" ที่คำนวณ netExpected (balance × 106/107 − ภาระหนี้)
+// ★ นี่คือ "จุดเดียว" ที่คำนวณ netExpected (balance × (1.07−WHT_RATE)/1.07 − ภาระหนี้)
 //   หน้าลูกหนี้คงค้าง (ตารางนี้) และพาเนล "📥 คาดรับเงินเข้า" ในหน้า Bank Daily
 //   (page_bank_diary.jsx → BDArPanel) เรียกตัวเดียวกัน → ยอดตรงกันทุกบาทเสมอ
 //   ⚠️ ห้ามคัดลอกสูตรไปคำนวณซ้ำที่อื่น (จะเพี้ยนทันทีที่ normalizeJobNo/resolveDebt เปลี่ยน)
@@ -117,9 +117,9 @@ function ivJoinRow(iv, projectByCode, financeByCode) {
     assigneeIsOverride,
     debt,
     debtIsOverride,
-    // คาดรับสุทธิ = balance หลังหัก WHT 1% (balance × 106/107) − ภาระหนี้
+    // คาดรับสุทธิ = balance หลังหัก WHT (อัตราจาก config.WHT_RATE) − ภาระหนี้
     // ใช้สูตรเดียวกับ popup detail (InvoiceDetailModal) เพื่อให้ตรงกันทั้งระบบ
-    netExpected: balance * 106 / 107 - debt,
+    netExpected: balance * ivNetFactor() - debt,
   };
 }
 function ivBuildRows(data) {
@@ -640,7 +640,7 @@ function InvoicesPage({ data, setData, toast }) {
         iv,
         draft: {
           date: new Date().toISOString().slice(0, 10),
-          amount: (Number(iv.balance) || 0) * 106 / 107,
+          amount: (Number(iv.balance) || 0) * ivNetFactor(),
           bankAccount: '',
           bankFee: 0,
           debtDeduct: Number(iv.debt) || 0,
@@ -1714,12 +1714,12 @@ function InvoiceDetailModal({ iv, onClose, onSave, onDelete, onCancelReceive, ba
   const debtPlaceholder = Number(finance?.debt ?? finance?.['ภาระหนี้'])
     ? fmtNum(Number(finance?.debt ?? finance?.['ภาระหนี้']), 2)
     : '— จากโครงการ —';
-  // ── ภาษีหัก ณ ที่จ่าย 1% (สำหรับงานราชการ) ──────────────────────────────
-  // Balance ในระบบรวม VAT 7% แล้ว → หัก WHT 1% ของยอดก่อน VAT
-  // สูตร: balance * 106/107 = ยอดหลังหัก WHT
-  //       wht = balance - (balance * 106/107) = balance / 107
+  // ── ภาษีหัก ณ ที่จ่าย (อัตราจาก config.WHT_RATE) ──────────────────────────────
+  // Balance ในระบบรวม VAT 7% แล้ว → หัก WHT ของยอดก่อน VAT (BIGDREAM = 3% ค่าบริการ)
+  // สูตร: balance × (1.07−rate)/1.07 = ยอดหลังหัก WHT
+  //       wht = balance / 1.07 × rate
   const balance       = Number(draft.balance) || 0;
-  const wht           = balance / 107;
+  const wht           = ivWhtOf(balance);
   const balanceAfterWHT = balance - wht;
   const netExpected   = balanceAfterWHT - debt;
   const canEdit  = window.WTPAuth ? window.WTPAuth.can('canEdit') : true;
@@ -2265,9 +2265,9 @@ function InvoiceDetailModal({ iv, onClose, onSave, onDelete, onCancelReceive, ba
 function QuickPayModal({ open, iv, draft, bankAccounts, onChangeDraft, onConfirm, onCancel }) {
   if (!open || !iv || !draft) return null;
 
-  // คำนวณ WHT 1% (งานราชการ): balance × 1/107 = WHT, balance × 106/107 = ยอดหลังหัก
+  // คำนวณ WHT ตามอัตราใน config (BIGDREAM = 3%) จากยอดก่อน VAT
   const bal             = Number(iv.balance) || 0;
-  const wht             = bal / 107;
+  const wht             = ivWhtOf(bal);
   const balanceAfterWHT = bal - wht;
   const netCash = (draft.amount || 0) - (draft.bankFee || 0) - (draft.debtDeduct || 0) - (draft.otherFee || 0);
 
@@ -3343,8 +3343,8 @@ function IvReportStandalonePage({ data, setData, toast }) {
       debt,
       invType,
       period,
-      // คาดรับสุทธิ = balance หลังหัก WHT 1% (balance × 106/107) − ภาระหนี้
-      netExpected: balance * 106 / 107 - debt,
+      // คาดรับสุทธิ = balance หลังหัก WHT (อัตราจาก config.WHT_RATE) − ภาระหนี้
+      netExpected: balance * ivNetFactor() - debt,
     };
   }), [data.invoices, projectByCode, financeByCode]);
 
