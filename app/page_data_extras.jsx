@@ -1862,11 +1862,13 @@ function DataPVPage({ data, setData, toast }) {
         //   และ WHT ส่วนใหญ่เป็น 0 ⇒ ขึ้น "—" ทุกแถว กินที่เปล่า ๆ
         //   (ค่ายังถูกเก็บใน DB และดูได้ในหน้าต่างรายละเอียด — แค่ไม่โชว์ในตาราง)
         //   ที่ว่างที่ได้คืนยกให้ "เลขที่ AP" กับ "ผู้รับเงิน" ที่เดิมตัดบรรทัด
-        { key: 'Pmt_Date',   label: 'วันที่จ่าย',  type: 'date', width: 96,  align: 'center' },
-        { key: 'PL_PV_No',   label: 'เลขที่ PV',   width: 134, mono: true, align: 'center' },
-        { key: 'AP_No',      label: 'เลขที่ AP',   width: 150, mono: true, align: 'center' },
-        { key: 'Payee',      label: 'ผู้รับเงิน',  width: 250 },
-        { key: 'Net_Amount', label: 'ยอดสุทธิ', align: 'right', headerAlign: 'right', width: 124, sortValue: r => parseNum(r.Net_Amount),
+        // ★ ความกว้างรวมต้องเผื่อจอแคบ — คอลัมน์ตายตัวรวม ~678px ที่เหลือเป็นของ "หมายเหตุ"
+        //   วันที่จ่าย ต้องกว้างพอใส่ "02/01/2026" เต็ม ๆ (96px ตัดเลขท้ายหาย)
+        { key: 'Pmt_Date',   label: 'วันที่จ่าย',  type: 'date', width: 108, align: 'center' },
+        { key: 'PL_PV_No',   label: 'เลขที่ PV',   width: 126, mono: true, align: 'center' },
+        { key: 'AP_No',      label: 'เลขที่ AP',   width: 142, mono: true, align: 'center' },
+        { key: 'Payee',      label: 'ผู้รับเงิน',  width: 190 },
+        { key: 'Net_Amount', label: 'ยอดสุทธิ', align: 'right', headerAlign: 'right', width: 112, sortValue: r => parseNum(r.Net_Amount),
           render: r => <span style={{ fontWeight: 700, color: parseNum(r.Net_Amount) < 0 ? 'var(--bad)' : 'var(--ink-800)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(parseNum(r.Net_Amount), 2)}</span> },
         { key: 'cc_remark',  label: 'หมายเหตุ' },
       ],
