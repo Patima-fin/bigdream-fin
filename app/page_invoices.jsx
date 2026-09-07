@@ -959,7 +959,7 @@ function InvoicesPage({ data, setData, toast }) {
             เบียดตกออกนอกกรอบและคอลัมน์แรกโดนตัด · เป็น % แล้วตารางพอดีกรอบเสมอ
             ทุกระดับการซูม · ที่กำหนดไว้รวม 86% ที่เหลือ 14% เป็นของ "รายละเอียด"
             (ตัดท้ายด้วย … เมื่อยาวเกิน) · ไม่ตั้ง minWidth เพราะจะกลายเป็นเพดานบังคับอีก */}
-        <table className="tbl tbl-compact" style={{ tableLayout: 'fixed', width: '100%' }}>
+        <table className="tbl tbl-compact tbl-tight">
           <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
             <tr>
               {bulkMode && canDeletePage && (
@@ -1061,7 +1061,8 @@ function InvoicesPage({ data, setData, toast }) {
                   <StatusPill
                     value={iv.status}
                     onChange={(v) => updateStatus(iv, v)}
-                    options={Object.entries(WTPData.IV_STATUS_META).map(([k, v]) => ({ value: k, label: v.label, kind: v.badge }))}
+                    // ใช้ชื่อสั้น (ติดตาม / ติดปัญหา / รับชำระ) ในตาราง — ชื่อเต็มยาวเกินช่อง
+                    options={Object.entries(WTPData.IV_STATUS_META).map(([k, v]) => ({ value: k, label: v.short || v.label, kind: v.badge }))}
                   />
                 </td>
               </tr>

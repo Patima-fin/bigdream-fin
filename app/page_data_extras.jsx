@@ -824,7 +824,7 @@ function DataCrudPage({ data, setData, toast, config }) {
               (เดิมเป็น auto-layout ข้อความยาวจึงดันคอลัมน์บวมและตัดขึ้นบรรทัดใหม่
                ทำให้แถวสูง 2-3 บรรทัด ตารางอ่านยาก) · ข้อความเต็มดูได้จาก tooltip
                และจากหน้าต่างรายละเอียดเมื่อคลิกแถว */}
-          <table className="tbl" style={{ tableLayout: 'fixed', width: '100%' }}>
+          <table className="tbl tbl-tight">
             <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
               <tr>
                 {/* Bulk-select header — only visible when bulkMode is on */}
@@ -4057,14 +4057,14 @@ function DataPayablePage({ data, setData, toast }) {
   };
 
   const COLS = [
-    { key: 'vchdate',    label: 'วันที่',            w: 90                           },
-    { key: 'vchno',      label: 'เลขที่ใบสำคัญ',    w: 140                          },
-    { key: 'cust_name',  label: 'เจ้าหนี้ / Vendor', w: 260                         },
-    { key: 'dpt_code',   label: 'แผนก',              w: 76,  align: 'center'        },
-    { key: 'cf_category',label: 'หมวด CF',           w: 110, noSort: true, align: 'center' },
-    { key: 'due2',       label: 'วันครบกำหนด',       w: 105                         },
-    { key: '_overdue',   label: 'เกินกำหนด',         w: 88,  noSort: true, align: 'center' },
-    { key: 'netpayment', label: 'Net Payment',   w: 148, align: 'right'         },
+    { key: 'vchdate',    label: 'วันที่',            w: '8%'                           },
+    { key: 'vchno',      label: 'เลขที่ใบสำคัญ',    w: '12%'                          },
+    { key: 'cust_name',  label: 'เจ้าหนี้ / Vendor', w: '22%'                         },
+    { key: 'dpt_code',   label: 'แผนก',              w: '6%',  align: 'center'        },
+    { key: 'cf_category',label: 'หมวด CF',           w: '9%', noSort: true, align: 'center' },
+    { key: 'due2',       label: 'วันครบกำหนด',       w: '9%'                         },
+    { key: '_overdue',   label: 'เกินกำหนด',         w: '7%',  noSort: true, align: 'center' },
+    { key: 'netpayment', label: 'Net Payment',   w: '12%', align: 'right'         },
     { key: 'remark',     label: 'หมายเหตุ',           w: 280                         },
   ];
 
@@ -4290,7 +4290,7 @@ function DataPayablePage({ data, setData, toast }) {
       {viewMode === 'list' ? (
       <div className="card anim-in" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'min(480px, calc(100vh - 400px))' }}>
-          <table className="tbl" style={{ minWidth: 1300 }}>
+          <table className="tbl tbl-tight">
             <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
               <tr>
                 {COLS.map(c => c.noSort
@@ -4421,7 +4421,7 @@ function DataPayablePage({ data, setData, toast }) {
           </div>
         </div>
         <div className="ap-aging-scroll" style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'min(560px, calc(100vh - 360px))' }}>
-          <table className="tbl" style={{ minWidth: 1080 }}>
+          <table className="tbl tbl-tight">
             <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--panel)' }}>
               <tr>
                 <th style={{ textAlign: 'left', minWidth: 220, position: 'sticky', left: 0, zIndex: 4, background: 'var(--brand-100)', color: 'var(--brand-700)' }}>เจ้าหนี้ / Vendor</th>

@@ -679,6 +679,11 @@ function StatusPill({ value, options, onChange, size = 'md' }) {
       style={{
         // ★ ต้อง inline-block — `.badge` เป็น inline-flex ซึ่งทำให้ <select> ใน Chrome
         //   ซ่อนข้อความ option ที่เลือก เหลือแค่ลูกศร (ดูเป็น "จุด") + ไม่ขึ้นสี
+        // ★ <select> ของเบราว์เซอร์กว้างตาม option ที่ยาวที่สุดเสมอ ไม่สนความกว้างของ
+        //   ช่องที่มันอยู่ → ในตารางที่คุมความกว้างคอลัมน์ไว้ มันจะดันตารางล้นออกนอกกรอบ
+        //   จนเกิดแถบเลื่อนแนวนอน · บังคับไม่ให้เกินกรอบของเซลล์
+        maxWidth: '100%',
+        boxSizing: 'border-box',
         display: 'inline-block',
         border: 'none',
         padding: size === 'sm' ? '2px 18px 2px 18px' : '4px 22px 4px 22px',

@@ -320,7 +320,7 @@ function UsersPage({ data, setData, toast }) {
       {/* Table */}
       <div className="card anim-in" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'min(560px, calc(100vh - 400px))' }}>
-          <table className="tbl" style={{ minWidth: 980 }}>
+          <table className="tbl tbl-tight">
             <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
               <tr>
                 {[

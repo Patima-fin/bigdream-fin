@@ -2064,3 +2064,17 @@ body.role-owner [data-owner-readonly] { pointer-events: none !important; cursor:
 @media (max-width: 620px) { .cfp-hero-flows { grid-template-columns: 1fr; } }
 /* การ์ดปลายงวดพื้นเข้ม — เงาแบนตอนปรินต์ (สีพื้นยังพิมพ์ครบจาก print-color-adjust ด้านบน) */
 @media print { .cfp-page .cfp-hero-end { box-shadow: none !important; } }
+
+/* ── .tbl-tight — ตารางรายการแบบ "กระชับ" ────────────────────────────────────
+   ใช้กับตารางรายการที่ควรเป็น 1 แถว = 1 บรรทัด (ใบแจ้งหนี้ / PV / ผู้ใช้ / audit)
+     · table-layout:fixed = คอลัมน์กว้างตามที่กำหนด ข้อความยาวไม่ดันคอลัมน์ให้บวม
+     · ตัดท้ายด้วย … แทนการขึ้นบรรทัดใหม่ → ทุกแถวสูงเท่ากัน อ่านกวาดตาได้เร็ว
+   ★ อย่าใส่ minWidth ให้ตารางที่ใช้คลาสนี้ — minWidth เป็นเพดานบังคับความกว้าง
+     พอกรอบแคบกว่า (จอเล็ก/ซูม 125-150%) จะเกิดแถบเลื่อนแนวนอนจนคอลัมน์แรกหลุดจอ
+     ให้กำหนดความกว้างคอลัมน์เป็น % แทน px จะพอดีกรอบเสมอ
+   ข้อความเต็มดูได้จาก tooltip (ชี้เมาส์ค้าง) และหน้าต่างรายละเอียดเมื่อคลิกแถว */
+.tbl-tight { table-layout: fixed; width: 100%; }
+.tbl-tight thead th,
+.tbl-tight tbody td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* <select> กว้างตาม option ที่ยาวสุดเสมอ — กันไม่ให้ดันตารางล้นกรอบ */
+.tbl-tight select { max-width: 100%; box-sizing: border-box; }

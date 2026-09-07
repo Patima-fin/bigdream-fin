@@ -353,16 +353,16 @@ function AuditLogPage({ data, toast }) {
       {rows && rows.length > 0 && (
         <div className="card anim-in" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'min(560px, calc(100vh - 400px))' }}>
-            <table className="tbl" style={{ minWidth: 1000 }}>
+            <table className="tbl tbl-tight">
               <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
                 <tr>
                   {[
-                    { k: 'timestamp',    label: 'เวลา',       w: 160 },
-                    { k: 'user',         label: 'ผู้ใช้',      w: 140 },
-                    { k: 'role',         label: 'Role',       w: 80 },
-                    { k: 'action',       label: 'การกระทำ',   w: 100 },
-                    { k: 'entity',       label: 'ตาราง',      w: 130 },
-                    { k: 'rowsAffected', label: 'จำนวนแถว',   w: 78,  align: 'right' },
+                    { k: 'timestamp',    label: 'เวลา',       w: '15%' },
+                    { k: 'user',         label: 'ผู้ใช้',      w: '13%' },
+                    { k: 'role',         label: 'Role',       w: '8%' },
+                    { k: 'action',       label: 'การกระทำ',   w: '10%' },
+                    { k: 'entity',       label: 'ตาราง',      w: '12%' },
+                    { k: 'rowsAffected', label: 'จำนวนแถว',   w: '8%',  align: 'right' },
                     { k: 'summary',      label: 'รายละเอียด (แก้ไขรายการไหน)' },
                   ].map(c => (
                     <th key={c.k}
