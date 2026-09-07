@@ -1849,22 +1849,16 @@ function DataPVPage({ data, setData, toast }) {
       allowDelete: true,     // …but allow deleting stale entries that never actually paid out
       tableMaxHeight: 'min(480px, calc(100vh - 400px))',
       columns: [
-        { key: 'Pmt_Date',   label: 'วันที่จ่าย',   type: 'date',  width: 100, align: 'center' },
-        { key: 'PL_PV_No',   label: 'เลขที่ PV',    width: 120, mono: true, align: 'center' },
-        { key: 'AP_No',      label: 'เลขที่ AP',    width: 120, mono: true, align: 'center' },
-        { key: 'Payee',      label: 'ผู้รับเงิน' },
-        { key: 'WHT', label: 'WHT', align: 'right', headerAlign: 'right', width: 90, sortValue: r => parseNum(r.WHT),
-          render: r => { const w = parseNum(r.WHT); return <span style={{ color: w ? 'oklch(58% 0.17 70)' : 'var(--ink-300)', fontVariantNumeric: 'tabular-nums' }}>{w ? fmtNum(w, 2) : '—'}</span>; } },
-        { key: 'Net_Amount', label: 'ยอดสุทธิ', align: 'right', headerAlign: 'right', width: 130, sortValue: r => parseNum(r.Net_Amount),
+        // ★ ตัดคอลัมน์ WHT และ "บิลที่จ่าย" ออกจากตาราง — ข้อมูลจาก PEAK ไม่มีบิลย่อย
+        //   และ WHT ส่วนใหญ่เป็น 0 ⇒ ขึ้น "—" ทุกแถว กินที่เปล่า ๆ
+        //   (ค่ายังถูกเก็บใน DB และดูได้ในหน้าต่างรายละเอียด — แค่ไม่โชว์ในตาราง)
+        //   ที่ว่างที่ได้คืนยกให้ "เลขที่ AP" กับ "ผู้รับเงิน" ที่เดิมตัดบรรทัด
+        { key: 'Pmt_Date',   label: 'วันที่จ่าย',  type: 'date', width: 96,  align: 'center' },
+        { key: 'PL_PV_No',   label: 'เลขที่ PV',   width: 134, mono: true, align: 'center' },
+        { key: 'AP_No',      label: 'เลขที่ AP',   width: 150, mono: true, align: 'center' },
+        { key: 'Payee',      label: 'ผู้รับเงิน',  width: 250 },
+        { key: 'Net_Amount', label: 'ยอดสุทธิ', align: 'right', headerAlign: 'right', width: 124, sortValue: r => parseNum(r.Net_Amount),
           render: r => <span style={{ fontWeight: 700, color: parseNum(r.Net_Amount) < 0 ? 'var(--bad)' : 'var(--ink-800)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(parseNum(r.Net_Amount), 2)}</span> },
-        { key: 'settles', label: 'บิลที่จ่าย', align: 'center', width: 92, sortValue: r => (Array.isArray(r.settles) ? r.settles.length : 0),
-          render: r => {
-            const n = Array.isArray(r.settles) ? r.settles.length : 0;
-            if (n) return <span title={r.settles.map(s => `${s.vchno || s.docno || '?'}${s.paid ? ' · ' + fmtNum(s.paid, 2) : ''}`).join('\n')} style={{ display: 'inline-block', minWidth: 20, padding: '1px 7px', borderRadius: 9, background: 'color-mix(in oklch, var(--brand-500) 12%, transparent)', color: 'var(--brand-700)', fontWeight: 600, fontSize: 11.5 }}>{n} บิล</span>;
-            // ใบจากใบอนุมัติจ่าย (AV/AE) — ไม่มีบิลย่อย/WHT โดยธรรมชาติ ไม่ใช่ข้อมูลขาด
-            if (r.Doc_Src === 'อนุมัติจ่าย') return <span title="มาจากใบอนุมัติจ่าย (ไม่มีดีเทลบิล/WHT)" style={{ display: 'inline-block', padding: '1px 7px', borderRadius: 9, background: 'color-mix(in oklch, oklch(60% 0.18 75) 14%, transparent)', color: 'oklch(48% 0.16 70)', fontWeight: 600, fontSize: 11 }}>ใบอนุมัติ</span>;
-            return <span style={{ color: 'var(--ink-300)' }}>—</span>;
-          } },
         { key: 'cc_remark',  label: 'หมายเหตุ' },
       ],
       modalFields: [
