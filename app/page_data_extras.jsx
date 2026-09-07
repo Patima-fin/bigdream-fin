@@ -4057,12 +4057,12 @@ function DataPayablePage({ data, setData, toast }) {
   };
 
   const COLS = [
-    { key: 'vchdate',    label: 'วันที่',            w: '8%'                           },
-    { key: 'vchno',      label: 'เลขที่ใบสำคัญ',    w: '12%'                          },
-    { key: 'cust_name',  label: 'เจ้าหนี้ / Vendor', w: '22%'                         },
+    { key: 'vchdate',    label: 'วันที่',            w: '10%'                           },
+    { key: 'vchno',      label: 'เลขที่ใบสำคัญ',    w: '13%'                          },
+    { key: 'cust_name',  label: 'เจ้าหนี้ / Vendor', w: '20%'                         },
     { key: 'cf_category',label: 'หมวด CF',           w: '9%', noSort: true, align: 'center' },
-    { key: 'due2',       label: 'วันครบกำหนด',       w: '9%'                         },
-    { key: '_overdue',   label: 'เกินกำหนด',         w: '7%',  noSort: true, align: 'center' },
+    { key: 'due2',       label: 'วันครบกำหนด',       w: '10%'                         },
+    { key: '_overdue',   label: 'เกินกำหนด',         w: '8%',  noSort: true, align: 'center' },
     { key: 'netpayment', label: 'Net Payment',   w: '12%', align: 'right'         },
     { key: 'remark',     label: 'หมายเหตุ'                                        },
   ];
@@ -4316,7 +4316,6 @@ function DataPayablePage({ data, setData, toast }) {
                       {isFloatingAp(row) && <FloatApTag dup={floatInfo.dupIds.has(row.id)} />}
                     </td>
                     <td style={vt}>{row.cust_name || <span className="muted">—</span>}</td>
-                    <td style={vt}>{row.dpt_code ? <Badge kind="b-blue" dot={false}>{row.dpt_code}</Badge> : <span className="muted">—</span>}</td>
                     <td style={{ ...vt, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                       <select
                         value={row.cf_category || ''}
@@ -4361,7 +4360,7 @@ function DataPayablePage({ data, setData, toast }) {
             </tbody>
             <tfoot>
               <tr style={{ background: 'var(--brand-50)', fontWeight: 700 }}>
-                <td colSpan={7} style={{ padding: '8px 14px', fontSize: 12, color: 'var(--brand-700)' }}>รวม {filtered.length} รายการ</td>
+                <td colSpan={6} style={{ padding: '8px 14px', fontSize: 12, color: 'var(--brand-700)' }}>รวม {filtered.length} รายการ</td>
                 <td className="num" style={{ padding: '8px 14px', textAlign: 'right', color: 'var(--bad)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(fNet, 2)}</td>
                 <td />
               </tr>
