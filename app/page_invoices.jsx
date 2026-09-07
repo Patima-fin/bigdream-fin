@@ -454,15 +454,15 @@ function InvoicesPage({ data, setData, toast }) {
   };
 
   // ── Tab classification helper ─────────────────────────────────────────────
-  // กลุ่ม "ลูกหนี้อื่นๆ" = non-paid AND invType==='O'
-  // กลุ่ม status (tracking/pending_inspection/issue) จะไม่นับ invType=='O' (ไม่ทับซ้อน)
+  // ★ BIO แยก "ใบแจ้งหนี้โครงการ (P)" กับ "ลูกหนี้อื่นๆ (O)" ออกจากกัน แท็บสถานะ
+  //   จึงตัด invType==='O' ทิ้ง — แต่ BIGDREAM ไม่มีงานโครงการ ทุกใบเป็น 'O'
+  //   ถ้าคงเงื่อนไขเดิมไว้ แท็บ กำลังติดตาม/รอใบตรวจรับ/ติดปัญหา จะขึ้น 0 ตลอด
+  //   ทั้งที่มีใบอยู่จริง ⇒ ตัดเงื่อนไข invType ออก (แท็บ 'other' ก็ไม่ใช้แล้ว)
   const matchTab = (iv, tab) => {
     if (tab === 'all') return true;
     if (tab === 'paid')        return iv.status === 'paid';
     if (tab === 'outstanding') return iv.status !== 'paid';
-    if (tab === 'other')       return iv.status !== 'paid' && iv.invType === 'O';
-    // status sub-tabs: exclude invType==='O'
-    return iv.status === tab && iv.invType !== 'O';
+    return iv.status === tab;
   };
 
   const filtered = ivMemo(() => {
@@ -721,8 +721,10 @@ function InvoicesPage({ data, setData, toast }) {
 
       {!fullscreen && (
       <div className="grid grid-4 anim-stagger" style={{ marginBottom: 16 }}>
-        <KpiTile label="ยอด Balance รวม" value={sums.balance} accent="var(--brand-500)" icon="invoice" />
-        <KpiTile label="ภาระหนี้รวม"      value={sums.debt} accent="var(--bad)" icon="arrow_up" />
+        {/* เดิมช่องที่ 2 คือ "ภาระหนี้รวม" (มาจากข้อมูลโครงการ) — BIGDREAM เป็น 0 เสมอ
+            เปลี่ยนเป็นยอด WHT ที่ลูกค้าหักไว้ ซึ่งเป็นตัวเลขที่ใช้จริงในการกระทบยอด */}
+        <KpiTile label="ยอดใบแจ้งหนี้รวม" value={sums.balance} accent="var(--brand-500)" icon="invoice" />
+        <KpiTile label="หัก ณ ที่จ่ายรวม" value={sums.balance - sums.net} accent="oklch(58% 0.17 70)" icon="arrow_up" />
         <KpiTile label="คาดรับสุทธิ (ค้าง)" value={sums.pendingNet} accent="var(--good)" icon="coin" />
         <KpiTile label="ติดปัญหา"          value={counts.issue} unit=" ใบ" digits={0} accent="oklch(60% 0.22 25)" icon="invoice" />
       </div>
@@ -791,7 +793,7 @@ function InvoicesPage({ data, setData, toast }) {
               { k: 'tracking',           label: 'กำลังติดตาม',   color: '#1e4fbd', bg: '#ebf8ff', bd: '#63b3ed' },
               { k: 'pending_inspection', label: 'รอใบตรวจรับ',   color: '#b45309', bg: '#fffbeb', bd: '#f6ad55' },
               { k: 'issue',              label: 'ติดปัญหา',       color: '#c53030', bg: '#fff5f5', bd: '#fc8181' },
-              { k: 'other',              label: 'ลูกหนี้อื่นๆ',   color: '#6b46c1', bg: '#faf5ff', bd: '#b794f4' },
+              // แท็บ "ลูกหนี้อื่นๆ" (invType==='O') ตัดออก — BIGDREAM ทุกใบเป็น O จึงซ้ำกับ "ค้างชำระ"
             ].map(s => {
               const active = filter === s.k;
               return (
@@ -819,7 +821,7 @@ function InvoicesPage({ data, setData, toast }) {
               onChange={(e) => { setQuery(e.target.value); setSugOpen(true); }}
               onFocus={() => query.trim() && setSugOpen(true)}
               onKeyDown={(e) => { if (e.key === 'Escape') setSugOpen(false); }}
-              placeholder="ค้นหาทุกคอลัมน์ — IV / Job / โครงการ / จังหวัด / ยอดเงิน / สถานะ…"
+              placeholder="ค้นหาทุกคอลัมน์ — เลข IV / ลูกค้า / รายละเอียด / ยอดเงิน / สถานะ…"
             />
             {query && (
               <button
@@ -951,7 +953,9 @@ function InvoicesPage({ data, setData, toast }) {
 
       <div className="card anim-in" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: fullscreen ? 'calc(100vh - 140px)' : 'min(480px, calc(100vh - 400px))' }}>
-        <table className="tbl tbl-compact" style={{ tableLayout: 'fixed', width: '100%', minWidth: fullscreen ? 0 : 940 }}>
+        {/* minWidth เดิม 940 ตั้งไว้ตอนมี 10 คอลัมน์ — ตอนนี้เหลือ 8 ถ้าไม่ลดจะดันให้เกิด
+            แถบเลื่อนแนวนอนแล้วคอลัมน์แรกโดนตัดหายไปนอกจอ */}
+        <table className="tbl tbl-compact" style={{ tableLayout: 'fixed', width: '100%', minWidth: fullscreen ? 0 : 880 }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
             <tr>
               {bulkMode && canDeletePage && (
@@ -975,7 +979,8 @@ function InvoicesPage({ data, setData, toast }) {
                     และสูตร netExpected ยังหัก debt ตามเดิม ซึ่งเป็น 0 เสมอ) */}
               <IvColHeader label="เลข IV"          sortKey="ivNo"            colKey="ivNo"            sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 128 : 118} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="วันที่ IV"        sortKey="invoiceDate"     colKey="invoiceDate"     sort={sort} sortToggle={toggle} align="center" width={fullscreen ?  98 : 90}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="รายละเอียด / ลูกค้า" sortKey="projectName"  colKey="projectName"     sort={sort} sortToggle={toggle} align="center"             colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="ลูกค้า"           sortKey="customer"        colKey="customer"        sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 260 : 210} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="รายละเอียด"       sortKey="projectName"     colKey="projectName"     sort={sort} sortToggle={toggle} align="center"             colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="ยอดค้าง"     sortKey="balance"         colKey="balance"         sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 130 : 118} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="สุทธิ"         sortKey="netExpected"     colKey="netExpected"     sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 130 : 116} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="วันที่"            sortKey="expectedReceive" colKey="expectedReceive" sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 108 : 92}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
@@ -983,7 +988,7 @@ function InvoicesPage({ data, setData, toast }) {
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 && <tr><td colSpan={8} className="muted" style={{ padding: 36, textAlign: 'center' }}>ไม่พบใบแจ้งหนี้</td></tr>}
+            {sorted.length === 0 && <tr><td colSpan={9} className="muted" style={{ padding: 36, textAlign: 'center' }}>ไม่พบใบแจ้งหนี้</td></tr>}
             {sorted.map(iv => (
               <tr key={iv.id}
                 style={{ cursor: 'pointer', background: (bulkMode && selected.has(iv.id)) ? 'color-mix(in oklch, var(--bad) 9%, transparent)' : undefined }}
@@ -998,8 +1003,14 @@ function InvoicesPage({ data, setData, toast }) {
                   <span style={{ fontFamily: 'ui-monospace', fontWeight: 600, fontSize: 12.5 }}>{iv.ivNo}</span>
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(iv.invoiceDate)}</td>
+                {/* ลูกค้า — แยกเป็นคอลัมน์ของตัวเองแล้ว (เดิมซ้อนอยู่ใต้ชื่อโครงการ) */}
+                <td style={{ overflow: 'hidden', maxWidth: 0 }} title={iv.customer}>
+                  <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--ink-800)' }}>
+                    {iv.customer || <span className="muted">—</span>}
+                  </span>
+                </td>
                 <td style={{ overflow: 'hidden', maxWidth: 0 }}>
-                  {/* Line 1: badges + project name */}
+                  {/* Line 1: badges + รายละเอียดบริการ */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
                     {/* ป้าย "O" (ใบแจ้งหนี้นอกโครงการ) ตัดออก — BIGDREAM ไม่มีงานโครงการ ทุกใบเป็น O อยู่แล้ว */}
                     {iv.productType && (
@@ -1011,19 +1022,7 @@ function InvoicesPage({ data, setData, toast }) {
                       {iv.projectName}
                     </span>
                   </div>
-                  {/* Line 2: customer (เจ้าของโครงการ / ลูกค้า) */}
-                  {iv.customer && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, overflow: 'hidden' }}
-                      title={`ลูกค้า: ${iv.customer}`}>
-                      <span style={{ flexShrink: 0, fontSize: 10, color: '#7c2d12', background: '#fef3c7', borderRadius: 4, padding: '0 5px', fontWeight: 700, border: '1px solid #fde68a' }}>
-                        👤
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--ink-600)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: 500 }}>
-                        {iv.customer}
-                      </span>
-                    </div>
-                  )}
-                  {/* Line 3: latest follow-up note (only when present) */}
+                  {/* Line 2: latest follow-up note (only when present) */}
                   {iv.followUps && iv.followUps.length > 0 && (() => {
                     const last = iv.followUps[iv.followUps.length - 1];
                     return (
@@ -1066,7 +1065,7 @@ function InvoicesPage({ data, setData, toast }) {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={(bulkMode && canDeletePage) ? 4 : 3}>รวม ({sorted.length} ใบ)</td>
+              <td colSpan={(bulkMode && canDeletePage) ? 5 : 4}>รวม ({sorted.length} ใบ)</td>
               <td className="num strong">{fmtNum(sorted.reduce((s,r)=>s+(Number(r.balance)||0), 0), 0)}</td>
               <td className="num" style={{ color: 'var(--good)' }}>{fmtNum(sorted.reduce((s,r)=>s+(Number(r.netExpected)||0), 0), 0)}</td>
               <td colSpan={2}></td>
@@ -3191,6 +3190,9 @@ function parseRawIv(text) {
       overDueCell:  cols[idx('over_due')] || '',
       periodCell:   idx('period') >= 0 ? cols[idx('period')] : '',
       invTypeCell:  cols[idx('invtype')] || cols[idx('inv_type')] || cols[idx('inv type')] || '',
+      // ★ เดิมไม่อ่านคอลัมน์ status เลย → ใบใหม่ทุกใบได้สถานะว่าง แล้วถูก alias เป็น
+      //   'pending_inspection' (รอใบตรวจรับ) ทั้งหมด แม้ไฟล์จะบอกว่าชำระแล้ว
+      statusCell:   cols[idx('status')] || cols[idx('สถานะ')] || '',
     });
     if (row.ivNo) out.push(row);
   }
@@ -3201,6 +3203,20 @@ function parseRawIv(text) {
 // ⚠️ `_present` = "คอลัมน์ไหนที่ไฟล์กรอกค่ามาจริง" — ตอนเทียบว่าใบเก่า "มีอัปเดตไหม"
 //    จะดูเฉพาะฟิลด์ใน _present เท่านั้น. ไฟล์ไม่มีคอลัมน์นั้น / เว้นว่าง = "ไม่แตะของเดิม"
 //    ไม่ใช่ "สั่งล้างค่าเป็น 0/ว่าง" (ไม่งั้นไฟล์ที่ไม่มีคอลัมน์ Balance จะล้างยอดทั้งตาราง).
+// สถานะจากไฟล์ → สถานะของระบบ · คืน '' ถ้าไม่รู้จัก (= ไม่แตะของเดิม)
+//   รับได้ทั้งคีย์ของระบบ (paid/tracking/…) และคำไทยที่ PEAK ใช้
+function ivImportStatus(cell) {
+  const s = (cell == null ? '' : String(cell)).trim();
+  if (!s) return '';
+  const lc = s.toLowerCase();
+  if (IV_VALID_STATUS.has(lc)) return lc;
+  if (IV_STATUS_ALIAS[lc]) return IV_STATUS_ALIAS[lc];
+  if (/ชำระแล้ว|ชำระเงินแล้ว|รับชำระแล้ว|paid/i.test(s)) return 'paid';
+  if (/เกินเวลา|ค้างชำระ|รอรับชำระ|รอชำระ|ชำระบางส่วน/.test(s)) return 'tracking';
+  if (/ติดปัญหา|issue/i.test(s)) return 'issue';
+  if (/ตรวจรับ/.test(s)) return 'pending_inspection';
+  return '';
+}
 function finalizeIvImportRow(v) {
   const remark      = (v.remark == null ? '' : String(v.remark)).trim();
   const hasCell     = (c) => c != null && String(c).trim() !== '';
@@ -3220,8 +3236,12 @@ function finalizeIvImportRow(v) {
     overDue:     parseNum(v.overDueCell),
     period:      hasPeriod ? parseNum(v.periodCell) : extractPeriodFromRemark(remark),
     invType:     ivType === 'O' ? 'O' : 'P',
+    status:      ivImportStatus(v.statusCell),
   };
   const present = [];
+  // สถานะ: เชื่อเฉพาะเมื่อไฟล์ส่งค่าที่ระบบรู้จักมาจริง — ไฟล์ที่ไม่มีคอลัมน์นี้
+  // จะไม่ไปทับสถานะ/ประวัติติดตามที่ทีมอัปเดตไว้เอง
+  if (row.status)                           present.push('status');
   if (hasCell(v.balanceCell))               present.push('balance');
   if (invoiceDate)                          present.push('invoiceDate');
   if (row.jobNo)                            present.push('jobNo');
