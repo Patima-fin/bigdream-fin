@@ -819,7 +819,11 @@ function DataCrudPage({ data, setData, toast, config }) {
 
       <div className="card anim-in" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: config.tableMaxHeight || 'calc(100vh - 330px)' }}>
-          <table className="tbl">
+          {/* tableLayout:fixed → คอลัมน์กว้างตามที่กำหนด ข้อความยาวถูกตัดท้ายด้วย …
+              (เดิมเป็น auto-layout ข้อความยาวจึงดันคอลัมน์บวมและตัดขึ้นบรรทัดใหม่
+               ทำให้แถวสูง 2-3 บรรทัด ตารางอ่านยาก) · ข้อความเต็มดูได้จาก tooltip
+               และจากหน้าต่างรายละเอียดเมื่อคลิกแถว */}
+          <table className="tbl" style={{ tableLayout: 'fixed', width: '100%' }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
               <tr>
                 {/* Bulk-select header — only visible when bulkMode is on */}
@@ -863,12 +867,14 @@ function DataCrudPage({ data, setData, toast, config }) {
                     getValue={colDisplay}
                   />
                 ))}
-                {(!effectiveReadOnly || effectiveAllowDelete) && <th style={{ width: 110 }}></th>}
+                {/* config.hideRowActions = ซ่อนคอลัมน์ปุ่มท้ายแถว (แก้/คัดลอก/ลบ)
+                    ใช้กับหน้าที่ปุ่มพวกนี้มีอยู่แล้วในหน้าต่างรายละเอียด — ได้ที่คืนมา 110px */}
+                {!config.hideRowActions && (!effectiveReadOnly || effectiveAllowDelete) && <th style={{ width: 110 }}></th>}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={config.columns.length + ((!effectiveReadOnly || effectiveAllowDelete) ? 1 : 0) + ((effectiveAllowDelete && bulkMode) ? 1 : 0)} style={{ padding: 36, textAlign: 'center' }} className="muted">ไม่พบข้อมูล</td></tr>
+                <tr><td colSpan={config.columns.length + ((!config.hideRowActions && (!effectiveReadOnly || effectiveAllowDelete)) ? 1 : 0) + ((effectiveAllowDelete && bulkMode) ? 1 : 0)} style={{ padding: 36, textAlign: 'center' }} className="muted">ไม่พบข้อมูล</td></tr>
               )}
               {sortedFiltered.map((row, _ri) => (
                 <tr key={(row.id != null ? row.id : 'r') + '_' + _ri}
@@ -886,7 +892,10 @@ function DataCrudPage({ data, setData, toast, config }) {
                     </td>
                   )}
                   {config.columns.map((c, i) => (
-                    <td key={i} style={{ textAlign: c.align || 'left' }} className={c.numeric ? 'num' : ''}>
+                    <td key={i}
+                      style={{ textAlign: c.align || 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      className={c.numeric ? 'num' : ''}
+                      title={c.render ? undefined : (row[c.key] == null ? '' : String(row[c.key]))}>
                       {c.render ? c.render(row) : (
                         c.type === 'money' ? <span style={{ color: row[c.key] < 0 ? 'var(--bad)' : 'inherit', fontWeight: 600 }}>{fmtNum(row[c.key], c.digits ?? 2)}</span>
                         : c.type === 'date' ? fmtDate(row[c.key])
@@ -895,7 +904,7 @@ function DataCrudPage({ data, setData, toast, config }) {
                       )}
                     </td>
                   ))}
-                  {(!effectiveReadOnly || effectiveAllowDelete) && (
+                  {!config.hideRowActions && (!effectiveReadOnly || effectiveAllowDelete) && (
                     <td onClick={e => e.stopPropagation()}>
                       <div className="row-act">
                         {!effectiveReadOnly && (
@@ -1811,6 +1820,7 @@ function DataPVPage({ data, setData, toast }) {
     <DataCrudPage data={data} setData={setData} toast={toast} config={{
       title: 'DATA PV · Payment Voucher',
       peakTarget: 'pv',      // รับไฟล์ดิบ "รายงานสมุดรายวัน" ของ PEAK ได้ตรง ๆ (app/peak_import.js)
+      hideRowActions: true,  // ปุ่มลบมีอยู่แล้วในหน้าต่างรายละเอียด (คลิกที่แถว) — ไม่ต้องซ้ำท้ายแถว
       sub: 'รายการจ่ายเงินจริง · โยนไฟล์ XML "รายงานการจ่ายชำระหนี้" (EXPRESS) ได้เลย · WHT เกิดตอนจ่าย',
       dataKey: 'pvVouchers',
       trackFreshness: true,   // โชว์ "อัปเดตล่าสุดเมื่อไหร่/โดยใคร" ที่หัวหน้า

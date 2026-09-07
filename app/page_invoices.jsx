@@ -953,9 +953,10 @@ function InvoicesPage({ data, setData, toast }) {
 
       <div className="card anim-in" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: fullscreen ? 'calc(100vh - 140px)' : 'min(480px, calc(100vh - 400px))' }}>
-        {/* minWidth เดิม 940 ตั้งไว้ตอนมี 10 คอลัมน์ — ตอนนี้เหลือ 8 ถ้าไม่ลดจะดันให้เกิด
-            แถบเลื่อนแนวนอนแล้วคอลัมน์แรกโดนตัดหายไปนอกจอ */}
-        <table className="tbl tbl-compact" style={{ tableLayout: 'fixed', width: '100%', minWidth: fullscreen ? 0 : 880 }}>
+        {/* minWidth เดิม 940 ตั้งไว้ตอนมี 10 คอลัมน์ — ตอนนี้เหลือ 8 คอลัมน์ที่มีความกว้าง
+            ตายตัวรวม ~778px ⇒ ตั้ง 790 พอให้ "รายละเอียด" ยังมีที่เหลือ และไม่ดันจนเกิด
+            แถบเลื่อนแนวนอน (ซึ่งทำให้คอลัมน์ "เลข IV" หลุดออกนอกจอ) */}
+        <table className="tbl tbl-compact" style={{ tableLayout: 'fixed', width: '100%', minWidth: fullscreen ? 0 : 790 }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
             <tr>
               {bulkMode && canDeletePage && (
@@ -977,14 +978,14 @@ function InvoicesPage({ data, setData, toast }) {
               {/* ★ BIGDREAM ไม่มีงานโครงการและไม่มีการโอนสิทธิ์ → ตัดคอลัมน์
                     Job No. / ผู้รับโอนสิทธิ์ / ภาระหนี้ ออก (ค่ายังอยู่ใน DB
                     และสูตร netExpected ยังหัก debt ตามเดิม ซึ่งเป็น 0 เสมอ) */}
-              <IvColHeader label="เลข IV"          sortKey="ivNo"            colKey="ivNo"            sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 128 : 118} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="วันที่ IV"        sortKey="invoiceDate"     colKey="invoiceDate"     sort={sort} sortToggle={toggle} align="center" width={fullscreen ?  98 : 90}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="ลูกค้า"           sortKey="customer"        colKey="customer"        sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 260 : 210} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="เลข IV"          sortKey="ivNo"            colKey="ivNo"            sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 118 : 106} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="วันที่ IV"        sortKey="invoiceDate"     colKey="invoiceDate"     sort={sort} sortToggle={toggle} align="center" width={fullscreen ?  92 : 84}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="ลูกค้า"           sortKey="customer"        colKey="customer"        sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 230 : 176} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="รายละเอียด"       sortKey="projectName"     colKey="projectName"     sort={sort} sortToggle={toggle} align="center"             colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="ยอดค้าง"     sortKey="balance"         colKey="balance"         sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 130 : 118} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="สุทธิ"         sortKey="netExpected"     colKey="netExpected"     sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 130 : 116} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="วันที่"            sortKey="expectedReceive" colKey="expectedReceive" sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 108 : 92}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="สถานะ"            sortKey="status"          colKey="status"          sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 168 : 132} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="ยอดค้าง"     sortKey="balance"         colKey="balance"         sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 118 : 102} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="สุทธิ"         sortKey="netExpected"     colKey="netExpected"     sort={sort} sortToggle={toggle} align="right"  width={fullscreen ? 118 : 102} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="วันที่"            sortKey="expectedReceive" colKey="expectedReceive" sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 100 : 86}  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
+              <IvColHeader label="สถานะ"            sortKey="status"          colKey="status"          sort={sort} sortToggle={toggle} align="center" width={fullscreen ? 150 : 122} colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
             </tr>
           </thead>
           <tbody>
