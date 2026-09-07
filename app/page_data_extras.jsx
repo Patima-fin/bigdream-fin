@@ -107,7 +107,7 @@ function DataCrudPage({ data, setData, toast, config }) {
 
   const filtered = dxMemo(() => {
     let xs = rows;
-    if (config.filters && filter !== 'all') {
+    if (config.filters && config.filters.length && filter !== 'all') {
       xs = xs.filter(r => config.filterFn(r, filter));
     }
     if (query.trim()) {
@@ -803,7 +803,8 @@ function DataCrudPage({ data, setData, toast, config }) {
       {config.banner}
 
       <div className="card" style={{ padding: 14, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        {config.filters ? (
+        {/* filters เป็น [] ว่าง = ไม่ต้องโชว์แถบแท็บเลย (ไม่งั้นเหลือปุ่ม "ทั้งหมด" โดด ๆ ที่กดแล้วไม่มีอะไรเกิดขึ้น) */}
+        {config.filters && config.filters.length ? (
           <div className="tabnav">
             <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>ทั้งหมด ({rows.length})</button>
             {config.filters.map(f => (
@@ -1821,11 +1822,11 @@ function DataPVPage({ data, setData, toast }) {
       title: 'DATA PV · Payment Voucher',
       peakTarget: 'pv',      // รับไฟล์ดิบ "รายงานสมุดรายวัน" ของ PEAK ได้ตรง ๆ (app/peak_import.js)
       hideRowActions: true,  // ปุ่มลบมีอยู่แล้วในหน้าต่างรายละเอียด (คลิกที่แถว) — ไม่ต้องซ้ำท้ายแถว
-      sub: 'รายการจ่ายเงินจริง · โยนไฟล์ XML "รายงานการจ่ายชำระหนี้" (EXPRESS) ได้เลย · WHT เกิดตอนจ่าย',
+      sub: 'รายการจ่ายเงินจริง · โยนไฟล์ "รายงานสมุดรายวัน" ที่โหลดจาก PEAK ได้เลย · ระบบยุบเป็นรายใบให้เอง',
       dataKey: 'pvVouchers',
       trackFreshness: true,   // โชว์ "อัปเดตล่าสุดเมื่อไหร่/โดยใคร" ที่หัวหน้า
 
-      importSourceNote: 'ต้องลง 2 ไฟล์ให้ครบ: (1) .xml "รายงานการจ่ายชำระหนี้ เรียงตามวันที่จ่ายเงิน" = ตัวหลัก (ยอดสุทธิ = เช็คจ่าย หัก WHT แล้ว · 1 เช็ค = 1 แถว · เก็บบิลที่จ่ายไว้ดูได้ · ใบยกเลิก (*) ตัดออกให้) → (2) .xml "รายงานอนุมัติจ่าย (ไม่มีดีเทล)" = เติมใบที่ไม่เข้ารายงาน PS (AV จ่ายมัดจำ/ทดรอง, AE) · ระบบดูหัวตารางแล้วรู้เองว่าไฟล์ไหน · หรือวาง RAW จาก AP รายงาน 4.3',
+      importSourceNote: 'PEAK: โหลด "รายงานสมุดรายวัน" (.xlsx) แล้วอัปได้เลย — ระบบตัดหัวรายงานและยุบบรรทัดบัญชี (double-entry) เป็น 1 ใบจ่าย = 1 แถวให้เอง · ยอดสุทธิ = เงินที่ออกจากบัญชีธนาคารจริง · WHT = ยอดที่ลงบัญชี ภ.ง.ด.ค้างจ่าย · ใบที่ผู้บริหารสำรองจ่ายแทน (ไม่มีเงินออกจากบัญชีบริษัท) จะได้ยอดสุทธิ 0 และประเภทการจ่าย "สำรองจ่ายแทน" · ยังรองรับไฟล์ .xml ของ EXPRESS แบบเดิมด้วย',
       // ★ ตัวอ่าน XML — เลือกเองระหว่างรายงานมีดีเทล (2 ชั้น PS/บิลย่อย → settles[]) กับใบอนุมัติจ่าย
       xmlParser: parsePaymentXML,
       // ทะเบียน PV ต้นทางตั้งหัวคอลัมน์บัญชีที่ตัดจ่ายว่า "Account_Code" (ไม่ใช่ Bank_AC) → map เข้าให้ตรง
@@ -1839,11 +1840,9 @@ function DataPVPage({ data, setData, toast }) {
       singular: 'PV',
       searchPlaceholder: 'ค้นหา PL_PV_No / Payee / AP_No / Ref_Code…',
       searchKeys: ['PL_PV_No', 'Payee', 'AP_No', 'Ref_Code', 'cc_remark'],
-      filters: [
-        { key: 'HRD', label: 'HRD' }, { key: 'FIN', label: 'FIN' },
-        { key: 'ACC', label: 'ACC' }, { key: 'PMD', label: 'PMD' },
-      ],
-      filterFn: (r, k) => r.Ref_Code === k,
+      // แท็บกรอง HRD / FIN / ACC / PMD (รหัสแผนกของ BIO ผ่าน Ref_Code) ตัดออก —
+      // ข้อมูลจาก PEAK ไม่มีฟิลด์นี้ ทุกแท็บจึงขึ้น 0 ตลอด
+      filters: [],
       emptyRow: {
         Project_Dpt: '', Ref_Code: '', PL_PV_No: '', jobcode: '',
         Pmt_Date: data.meta.asOf, Type_of_Pmt: 'Transfer Bank', Option: '',
@@ -1898,14 +1897,19 @@ function DataPVPage({ data, setData, toast }) {
         const month     = (new Date()).toISOString().slice(0, 7);
         const thisMonth = rows.filter(r => (r.Pmt_Date || '').slice(0, 7) === month)
           .reduce((s, r) => s + parseNum(r.Net_Amount), 0);
-        const byRef = {};
-        rows.forEach(r => { const k = r.Ref_Code || '?'; byRef[k] = (byRef[k]||0) + parseNum(r.Net_Amount); });
-        const topRef = Object.entries(byRef).sort((a,b)=>b[1]-a[1])[0] || ['—', 0];
+        // ★ เดิมช่องที่ 4 คือ "Ref สูงสุด" (จัดกลุ่มด้วย Ref_Code = รหัสแผนกของ BIO)
+        //   ข้อมูลจาก PEAK ไม่มีฟิลด์นี้ ⇒ ทุกแถวตกกลุ่ม '?' แล้วโชว์ยอดรวมซ้ำกับช่องที่ 2
+        //   เปลี่ยนมาจัดกลุ่มด้วย "ผู้รับเงิน" ซึ่งมีข้อมูลจริงและใช้ตอบได้ว่าจ่ายให้ใครมากสุด
+        const byPayee = {};
+        rows.forEach(r => { const k = String(r.Payee || '').trim() || '—'; byPayee[k] = (byPayee[k] || 0) + parseNum(r.Net_Amount); });
+        const topPayee = Object.entries(byPayee).sort((a, b) => b[1] - a[1])[0] || ['—', 0];
+        const shortName = topPayee[0].replace(/^(บริษัท|หจก\.|ห้างหุ้นส่วนจำกัด)\s*/, '').slice(0, 20)
+                        + (topPayee[0].replace(/^(บริษัท|หจก\.|ห้างหุ้นส่วนจำกัด)\s*/, '').length > 20 ? '…' : '');
         return [
           { label: 'จำนวน PV',        value: rows.length, unit: ' รายการ', digits: 0, icon: 'invoice', accent: 'var(--brand-500)' },
           { label: 'ยอดสุทธิรวม',     value: total,     accent: 'var(--bad)', icon: 'arrow_up' },
           { label: 'เดือนนี้',         value: thisMonth, accent: 'oklch(60% 0.18 295)', icon: 'coin' },
-          { label: `Ref สูงสุด: ${topRef[0]}`, value: topRef[1], accent: 'oklch(70% 0.16 75)', icon: 'money' },
+          { label: `จ่ายมากสุด: ${shortName}`, value: topPayee[1], accent: 'oklch(70% 0.16 75)', icon: 'money' },
         ];
       },
     }} />
