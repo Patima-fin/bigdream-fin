@@ -66,6 +66,37 @@ data layer: `data.js` (shape + cache) → `data_sync.js` / `data_supabase.js` (s
 
 ถ้าหน้านั้น error ว่า `X is not defined` → helper ตัวนั้นอยู่ในหน้าที่ถูกตัด ให้ยกมาไว้ `shared_bits.jsx`
 
+## นำเข้าข้อมูลจาก PEAK — `app/peak_import.js`
+
+BIGDREAM ใช้โปรแกรมบัญชี **PEAK** (BIO ใช้ **EXPRESS**) รายงานที่ PEAK ส่งออกมาใช้กับ
+ตัวนำเข้าเดิมไม่ได้ 3 เหตุ: (1) มีหัวรายงานคร่อม ~11 บรรทัด (2) หัวคอลัมน์เป็นไทย
+(3) สมุดรายวันเป็น double-entry ต้องยุบเป็นรายเอกสารก่อน
+
+`peak_import.js` แปลง sheet ของ PEAK → TSV ที่หัวคอลัมน์ตรงฟิลด์แอป แล้วส่งต่อให้
+ตัวนำเข้าเดิมทำ diff/preview/commit ตามปกติ — **ไฟล์ที่ไม่ใช่ PEAK คืน `null` แล้วไหลไปทางเดิม**
+
+| รายงาน PEAK | หน้าในแอป | target |
+|---|---|---|
+| รายงานใบแจ้งหนี้ | ใบแจ้งหนี้คงค้าง | `iv` |
+| รายงานบันทึกรายจ่าย | DATA AP Outstanding | `ap` |
+| รายงานสมุดรายวัน | DATA PV | `pv` |
+
+**จุดที่ hook ไว้ 3 ที่** (ทั้งหมดอ่าน workbook แล้วทำเป็น TSV เหมือนกัน):
+- `page_data_extras.jsx` → `DataCrudPage.handleFileUpload` (เปิดใช้ด้วย `config.peakTarget`)
+- `page_data_extras.jsx` → `DataPayablePage.handleFileUpload` (fix เป็น `'ap'`)
+- `page_invoices.jsx` → `ImportRawIvModal.handleFile` (fix เป็น `'iv'`)
+
+การแปลงที่ควรรู้:
+- **PV**: `Net_Amount` = ยอดเครดิตบัญชีธนาคาร (`1113xx`) = เงินออกจริง · `WHT` = เครดิต
+  ภ.ง.ด.ค้างจ่าย (`2152xx`) · `Bank_AC` ดึงจากเลขบัญชีที่ฝังในคำอธิบายด้วย regex ·
+  ใบที่ไม่มีเงินออก (สำรองจ่ายแทน `212203`) → `Net_Amount` 0 + ใส่หมายเหตุ · เอาเฉพาะสมุด "จ่าย"
+- **IV**: `balance` = คอลัมน์ "ทั้งหมด" (รวม VAT) แล้วให้แอปหัก WHT เอง · สถานะ PEAK
+  map เป็น `paid` / `tracking` · ใบที่ "ยกเลิก" ถูกข้าม
+- **AP**: `netpayment` = "ต้องชำระ" (หลังหัก WHT) · `vchno` = `EXP-xxxxx`
+  ⚠️ `_isPayableDetailRow` ต้องมี prefix `EXP` อยู่ใน `_PAYABLE_DOC_PREFIX` ไม่งั้นแถวถูกทิ้งเงียบ ๆ
+
+**เพิ่มโปรแกรมบัญชีใหม่ในอนาคต:** เขียน builder เพิ่มใน `peak_import.js` แล้วเติมใน `REPORTS`
+
 ## แบรนด์ · โลโก้ · สีธีม
 
 **ชื่อบริษัท** — `บริษัท บิ๊ก ดรีม โฮลดิง จำกัด` · `BIG DREAM HOLDINGS CO., LTD.`

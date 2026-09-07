@@ -696,6 +696,18 @@ function DataCrudPage({ data, setData, toast, config }) {
         const wb = window.XLSX.read(e.target.result, { type: 'array', cellDates: false, cellNF: true });
         const sheetName = wb.SheetNames[0];
         const ws = wb.Sheets[sheetName];
+        // ── ไฟล์ดิบจาก PEAK: ตัดหัวรายงาน + แปลงหัวคอลัมน์ไทยเป็นชื่อฟิลด์ก่อน ──
+        //    (ดู app/peak_import.js) · ไฟล์ที่ไม่ใช่ PEAK จะคืน null แล้วไหลไปทางเดิม
+        if (window.PeakImport && config.peakTarget) {
+          const pk = window.PeakImport.sheetToTSV(ws, config.peakTarget);
+          if (pk && !pk.ok) { toast(pk.message); return; }
+          if (pk && pk.ok) {
+            setImportText(pk.tsv);
+            setImportFileName(file.name);
+            toast(pk.note + ' — กด "ตรวจสอบข้อมูล" ต่อได้เลย');
+            return;
+          }
+        }
         Object.keys(ws).forEach(addr => {
           if (addr[0] === '!') return;
           const c = ws[addr];
@@ -1798,6 +1810,7 @@ function DataPVPage({ data, setData, toast }) {
   return (
     <DataCrudPage data={data} setData={setData} toast={toast} config={{
       title: 'DATA PV · Payment Voucher',
+      peakTarget: 'pv',      // รับไฟล์ดิบ "รายงานสมุดรายวัน" ของ PEAK ได้ตรง ๆ (app/peak_import.js)
       sub: 'รายการจ่ายเงินจริง · โยนไฟล์ XML "รายงานการจ่ายชำระหนี้" (EXPRESS) ได้เลย · WHT เกิดตอนจ่าย',
       dataKey: 'pvVouchers',
       trackFreshness: true,   // โชว์ "อัปเดตล่าสุดเมื่อไหร่/โดยใคร" ที่หัวหน้า
@@ -3122,6 +3135,18 @@ function DataPayablePage({ data, setData, toast }) {
         // อ่าน raw แล้ว convert date cells ผ่าน SSF.parse_date_code (กัน timezone bug)
         const wb = window.XLSX.read(e.target.result, { type: 'array', cellDates: false, cellNF: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
+        // ── ไฟล์ดิบจาก PEAK (รายงานบันทึกรายจ่าย) → แปลงเป็นฟิลด์เจ้าหนี้ก่อน ──
+        if (window.PeakImport) {
+          const pk = window.PeakImport.sheetToTSV(ws, 'ap');
+          if (pk && !pk.ok) { toast(pk.message); return; }
+          if (pk && pk.ok) {
+            setXmlParsedRows(null);
+            setImportText(pk.tsv);
+            setImportFileName(file.name);
+            toast(pk.note + ' — กด "ตรวจสอบข้อมูล" ต่อได้เลย');
+            return;
+          }
+        }
         Object.keys(ws).forEach(addr => {
           if (addr[0] === '!') return;
           const c = ws[addr];

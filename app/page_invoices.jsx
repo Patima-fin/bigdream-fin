@@ -694,8 +694,8 @@ function InvoicesPage({ data, setData, toast }) {
           <PrintButton />
           {canEditPage && (
             <button className="btn btn-primary" onClick={() => setShowImport(true)}
-              title="เพิ่มใบแจ้งหนี้ — อัปโหลด/ลากไฟล์ RAW_IV_OUTSTANDING หรือกรอกเองทีละใบ">
-              <Icon name="plus" size={14} /> เพิ่มใบแจ้งหนี้
+              title="นำเข้าไฟล์ Excel (รายงานใบแจ้งหนี้จาก PEAK หรือ RAW_IV_OUTSTANDING) หรือกรอกเองทีละใบ">
+              <Icon name="plus" size={14} /> นำเข้า / เพิ่มใบแจ้งหนี้
             </button>
           )}
           {canDeletePage && (
@@ -2633,6 +2633,17 @@ function ImportRawIvModal({ open, onClose, existing, onImport, onManualAdd, canD
         }
         const sheetName = wb.SheetNames[0];
         const ws        = wb.Sheets[sheetName];
+        // ── ไฟล์ดิบจาก PEAK (รายงานใบแจ้งหนี้) → แปลงหัวคอลัมน์ให้ตรงฟิลด์ก่อน ──
+        //    (ดู app/peak_import.js) · ไฟล์รูปแบบเดิม (RAW_IV_OUTSTANDING) ไหลไปทางเดิม
+        if (window.PeakImport) {
+          const pk = window.PeakImport.sheetToTSV(ws, 'iv');
+          if (pk && !pk.ok) { setFileErr(pk.message); return; }
+          if (pk && pk.ok) {
+            setRaw(pk.tsv);
+            setFileInfo({ name: file.name, sheets: wb.SheetNames, picked: sheetName, note: pk.note });
+            return;
+          }
+        }
         // แปลงเป็น TSV (formatted values, ไม่ใช่ raw numbers — เพื่อให้วันที่ออกเป็น "09/04/2026")
         const tsv = XLSX.utils.sheet_to_csv(ws, { FS: '\t', RS: '\n', rawNumbers: false, blankrows: false });
         setRaw(tsv);
