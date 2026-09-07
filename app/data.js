@@ -706,9 +706,11 @@
     delivered:   { label: 'ส่งมอบงานแล้ว',     badge: 'b-blue' },
     received:    { label: 'รับชำระแล้ว',        badge: 'b-green' },
   };
-  // NEW: 4 IV statuses
+  // IV statuses — BIGDREAM ใช้ 3 สถานะ
+  //   ★ ตัด 'pending_inspection' (รอใบตรวจรับ) ออก — เป็นขั้นตอนของงานก่อสร้างที่ต้องรอ
+  //     ใบตรวจรับงานก่อนวางบิล ไม่มีในงานที่ปรึกษา · แถวเก่าที่บันทึกค่านี้ไว้จะถูก
+  //     alias เป็น 'tracking' ตอนแสดงผล (ดู IV_STATUS_ALIAS ใน page_invoices.jsx)
   const IV_STATUS_META = {
-    pending_inspection: { label: 'รอใบตรวจรับ',         badge: 'b-amber',  short: 'รอตรวจรับ' },
     tracking:           { label: 'อยู่ระหว่างติดตามเงิน', badge: 'b-blue',   short: 'ติดตาม' },
     issue:              { label: 'ติดปัญหา',              badge: 'b-red',    short: 'ติดปัญหา' },
     paid:               { label: 'รับชำระแล้ว',           badge: 'b-green',  short: 'รับชำระ' },

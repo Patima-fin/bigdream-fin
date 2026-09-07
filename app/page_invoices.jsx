@@ -3,7 +3,7 @@
 //   ★ BIGDREAM ไม่มีงานโครงการ/ไม่มีการโอนสิทธิ์ → ตัด Job No. · ผู้รับโอนสิทธิ์ · ภาระหนี้
 //     ออกจากตารางและไฟล์ส่งออกแล้ว (ฟิลด์ยังอยู่ใน schema + สูตร netExpected ยังหัก debt
 //     ตามเดิม ซึ่งเป็น 0 เสมอ — ถ้าวันหนึ่งมีงานโครงการ เอากลับมาได้โดยไม่ต้องย้ายข้อมูล)
-// - 4 statuses: pending_inspection / tracking / issue / paid
+// - 3 statuses: tracking / issue / paid  (BIGDREAM ตัด pending_inspection ออก — ไม่ใช่งานโครงการ)
 // - Follow-up log (รอบติดตาม) + ผู้ติดต่อ + เบอร์โทร + คาดรับเงิน + รับจริง (วันที่/จำนวน/บัญชี)
 // - Paste RAW_IV_OUTSTANDING (TSV/JSON) → ระบบหาว่าใบไหนใหม่ → import เฉพาะใหม่
 // - Sort + Filter + Search
@@ -80,9 +80,12 @@ Object.assign(window, { resolveAssignee, resolveDebt, resolveProjectName, ivHasA
 //   หน้าลูกหนี้คงค้าง (ตารางนี้) และพาเนล "📥 คาดรับเงินเข้า" ในหน้า Bank Daily
 //   (page_bank_diary.jsx → BDArPanel) เรียกตัวเดียวกัน → ยอดตรงกันทุกบาทเสมอ
 //   ⚠️ ห้ามคัดลอกสูตรไปคำนวณซ้ำที่อื่น (จะเพี้ยนทันทีที่ normalizeJobNo/resolveDebt เปลี่ยน)
-const IV_VALID_STATUS = new Set(['pending_inspection', 'tracking', 'issue', 'paid']);
+// ★ BIGDREAM ตัดสถานะ 'pending_inspection' (รอใบตรวจรับ) ออก — เป็นขั้นตอนของงาน
+//   ก่อสร้าง (รอใบตรวจรับงานก่อนวางบิล) ไม่มีในงานที่ปรึกษา เหลือ 3 สถานะ
+//   แถวเก่าที่เคยบันทึกเป็น pending_inspection จะถูก alias เป็น 'tracking' ให้อัตโนมัติ
+const IV_VALID_STATUS = new Set(['tracking', 'issue', 'paid']);
 // map รหัสสถานะแบบเก่า/ทางเลือก → สถานะ canonical 4 ตัว
-const IV_STATUS_ALIAS = { pending: 'tracking', '': 'pending_inspection' };
+const IV_STATUS_ALIAS = { pending: 'tracking', pending_inspection: 'tracking', '': 'tracking' };
 function ivJoinRow(iv, projectByCode, financeByCode) {
   // ── normalize jobNo: ตัด productType suffix ออก ───────────────────────────
   const norm = normalizeJobNo(iv.jobNo);
@@ -98,7 +101,7 @@ function ivJoinRow(iv, projectByCode, financeByCode) {
   const assigneeIsOverride = ivHasAssigneeOverride(iv);
   const rawStatus = (iv.status || '').toString().trim();
   const aliased   = IV_STATUS_ALIAS[rawStatus] != null ? IV_STATUS_ALIAS[rawStatus] : rawStatus;
-  const status    = IV_VALID_STATUS.has(aliased) ? aliased : 'pending_inspection';
+  const status    = IV_VALID_STATUS.has(aliased) ? aliased : 'tracking';
   // invType: 'P' = ใบแจ้งหนี้โครงการ (default), 'O' = ใบแจ้งหนี้อื่นๆ
   const rawIvType = (iv.invType || iv.invtype || 'P').toString().trim().toUpperCase();
   const invType   = rawIvType === 'O' ? 'O' : 'P';
@@ -514,7 +517,6 @@ function InvoicesPage({ data, setData, toast }) {
     paid:               rows.filter(r => matchTab(r, 'paid')).length,
     outstanding:        rows.filter(r => matchTab(r, 'outstanding')).length,
     tracking:           rows.filter(r => matchTab(r, 'tracking')).length,
-    pending_inspection: rows.filter(r => matchTab(r, 'pending_inspection')).length,
     issue:              rows.filter(r => matchTab(r, 'issue')).length,
     other:              rows.filter(r => matchTab(r, 'other')).length,
   };
@@ -627,7 +629,7 @@ function InvoicesPage({ data, setData, toast }) {
     // invoiceDate = วันนี้จริง ไม่ใช่ data.meta.asOf (ค่า seed ค้างใน prod)
     ivNo: '', jobNo: '', period: 1,
     invoiceDate: new Date().toISOString().slice(0, 10), balance: 0,
-    status: 'pending_inspection', expectedReceive: '',
+    status: 'tracking', expectedReceive: '',
     contactName: '', contactPhone: '',
     invType: 'P',
     followUps: [], actualReceive: null,
@@ -786,12 +788,11 @@ function InvoicesPage({ data, setData, toast }) {
             </button>
           </div>
 
-          {/* Sub-tabs for outstanding (กำลังติดตาม / รอใบตรวจรับ / ติดปัญหา / ลูกหนี้อื่นๆ) */}
+          {/* Sub-tabs for outstanding (กำลังติดตาม / ติดปัญหา) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4, paddingLeft: 8, borderLeft: '1px dashed var(--ink-200)' }}>
             <span style={{ fontSize: 11, color: 'var(--ink-400)', marginRight: 2 }}>แยก:</span>
             {[
               { k: 'tracking',           label: 'กำลังติดตาม',   color: '#1e4fbd', bg: '#ebf8ff', bd: '#63b3ed' },
-              { k: 'pending_inspection', label: 'รอใบตรวจรับ',   color: '#b45309', bg: '#fffbeb', bd: '#f6ad55' },
               { k: 'issue',              label: 'ติดปัญหา',       color: '#c53030', bg: '#fff5f5', bd: '#fc8181' },
               // แท็บ "ลูกหนี้อื่นๆ" (invType==='O') ตัดออก — BIGDREAM ทุกใบเป็น O จึงซ้ำกับ "ค้างชำระ"
             ].map(s => {
@@ -1228,12 +1229,7 @@ function IvReportView({ rows, onOpen }) {
         !(iv.expectedReceive && iv.expectedReceive < today)
       ),
     },
-    {
-      key: 'pending',
-      icon: '📋', label: 'รอใบตรวจรับ',
-      grad: 'linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%)', text: '#1e293b', border: '#94a3b8', // neutral slate
-      rows: rows.filter(iv => iv.status === 'pending_inspection'),
-    },
+    // กลุ่ม "รอใบตรวจรับ" ตัดออก — เป็นขั้นตอนของงานก่อสร้าง ไม่มีในงานที่ปรึกษา
     // ── 2 รายการล่างสุด: ติดปัญหา → เกินกำหนด ────────────────────
     {
       key: 'issue',
@@ -2697,7 +2693,7 @@ function ImportRawIvModal({ open, onClose, existing, onImport, onManualAdd, canD
       contractRef: r.contractRef || '',
       invType:     r.invType || 'P',
       remark: r.remark || '', customer: r.customer || '',
-      status: 'pending_inspection', expectedReceive: '',
+      status: 'tracking', expectedReceive: '',
       contactName: '', contactPhone: '',
       followUps: [], actualReceive: null,
     }));
@@ -3216,7 +3212,6 @@ function ivImportStatus(cell) {
   if (/ชำระแล้ว|ชำระเงินแล้ว|รับชำระแล้ว|paid/i.test(s)) return 'paid';
   if (/เกินเวลา|ค้างชำระ|รอรับชำระ|รอชำระ|ชำระบางส่วน/.test(s)) return 'tracking';
   if (/ติดปัญหา|issue/i.test(s)) return 'issue';
-  if (/ตรวจรับ/.test(s)) return 'pending_inspection';
   return '';
 }
 function finalizeIvImportRow(v) {
