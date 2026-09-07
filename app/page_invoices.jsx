@@ -985,14 +985,13 @@ function InvoicesPage({ data, setData, toast }) {
               <IvColHeader label="วันที่ IV"        sortKey="invoiceDate"     colKey="invoiceDate"     sort={sort} sortToggle={toggle} align="center" width="10%"  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="ลูกค้า"           sortKey="customer"        colKey="customer"        sort={sort} sortToggle={toggle} align="center" width="20%" colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="รายละเอียด"       sortKey="projectName"     colKey="projectName"     sort={sort} sortToggle={toggle} align="center"             colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
-              <IvColHeader label="ยอดค้าง"     sortKey="balance"         colKey="balance"         sort={sort} sortToggle={toggle} align="right"  width="11%"  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="สุทธิ"         sortKey="netExpected"     colKey="netExpected"     sort={sort} sortToggle={toggle} align="right"  width="11%"  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="วันที่"            sortKey="expectedReceive" colKey="expectedReceive" sort={sort} sortToggle={toggle} align="center" width="10%"  colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
               <IvColHeader label="สถานะ"            sortKey="status"          colKey="status"          sort={sort} sortToggle={toggle} align="center" width="12%" colFilters={colFilters} setColFilters={setColFilters} openCol={openCol} setOpenCol={setOpenCol} allRows={rows} />
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 && <tr><td colSpan={9} className="muted" style={{ padding: 36, textAlign: 'center' }}>ไม่พบใบแจ้งหนี้</td></tr>}
+            {sorted.length === 0 && <tr><td colSpan={8} className="muted" style={{ padding: 36, textAlign: 'center' }}>ไม่พบใบแจ้งหนี้</td></tr>}
             {sorted.map(iv => (
               <tr key={iv.id}
                 style={{ cursor: 'pointer', background: (bulkMode && selected.has(iv.id)) ? 'color-mix(in oklch, var(--bad) 9%, transparent)' : undefined }}
@@ -1042,7 +1041,6 @@ function InvoicesPage({ data, setData, toast }) {
                     );
                   })()}
                 </td>
-                <td className="num strong" style={{ whiteSpace: 'nowrap' }}>{fmtNum(iv.balance, 0)}</td>
                 <td className="num" style={{ whiteSpace: 'nowrap', color: 'var(--good)', fontWeight: 700 }}>{fmtNum(iv.netExpected, 0)}</td>
                 <td style={{ whiteSpace: 'nowrap', textAlign: 'center', padding: '4px 6px' }} onClick={(e) => e.stopPropagation()}>
                   {iv.status === 'paid' ? (
@@ -1071,7 +1069,6 @@ function InvoicesPage({ data, setData, toast }) {
           <tfoot>
             <tr>
               <td colSpan={(bulkMode && canDeletePage) ? 5 : 4}>รวม ({sorted.length} ใบ)</td>
-              <td className="num strong">{fmtNum(sorted.reduce((s,r)=>s+(Number(r.balance)||0), 0), 0)}</td>
               <td className="num" style={{ color: 'var(--good)' }}>{fmtNum(sorted.reduce((s,r)=>s+(Number(r.netExpected)||0), 0), 0)}</td>
               <td colSpan={2}></td>
             </tr>

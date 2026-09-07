@@ -353,7 +353,7 @@ function AuditLogPage({ data, toast }) {
       {rows && rows.length > 0 && (
         <div className="card anim-in" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'min(560px, calc(100vh - 400px))' }}>
-            <table className="tbl tbl-tight">
+            <table className="tbl tbl-compact tbl-tight">
               <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--surface)' }}>
                 <tr>
                   {[
