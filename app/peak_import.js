@@ -111,12 +111,10 @@
         customer: g(row, 'ชื่อลูกค้า'),
         contractref: g(row, 'อ้างอิง'),
         producttype: '',
-        remark: [g(row, 'คำอธิบาย'),
-                 'VAT ' + fmt(num(g(row, 'ยอด VAT'))),
-                 'WHT ' + fmt(num(g(row, 'หัก ณ ที่จ่าย'))),
-                 'ต้องชำระ ' + fmt(num(g(row, 'ต้องชำระ'))),
-                 'ครบกำหนด ' + g(row, 'วันที่ครบกำหนด'),
-                 st].filter(Boolean).join(' · '),
+        // ★ ใช้ข้อความจากไฟล์ล้วน ๆ ไม่ประกอบเอง (VAT/WHT/ต้องชำระ แอปคำนวณเองได้จาก
+        //   balance + config.WHT_RATE อยู่แล้ว ไม่ต้องยัดมาไว้ในหมายเหตุ)
+        remark: [g(row, 'คำอธิบาย') || g(row, 'ชื่อสินค้า/บริการ'), g(row, 'หมายเหตุ')]
+                  .filter(Boolean).join(' · '),
         over_due: '',
       });
     }
@@ -146,7 +144,11 @@
         Balance_Amount1: num(g(row, 'มูลค่ารอชำระ')),
         docno: g(row, 'เลขที่ใบกำกับภาษี'),
         dpt_code: '',
-        remark: [g(row, 'ชื่อสินค้า/บริการ'), 'WHT ' + fmt(num(g(row, 'หัก ณ ที่จ่าย'))), st].filter(Boolean).join(' · '),
+        // ★ ใช้ข้อความจากไฟล์ล้วน ๆ ไม่ประกอบเอง
+        //   คอลัมน์ P "คำอธิบาย" คือช่องที่ PEAK ใส่รายละเอียดจริง (O "ชื่อสินค้า/บริการ"
+        //   มักว่าง จึงใช้เป็นตัวสำรอง) · ต่อท้ายด้วย AE "หมายเหตุ" ถ้าผู้ใช้กรอกไว้
+        remark: [g(row, 'คำอธิบาย') || g(row, 'ชื่อสินค้า/บริการ'), g(row, 'หมายเหตุ')]
+                  .filter(Boolean).join(' · '),
       });
     }
     return { cols: cols, rows: out };
@@ -196,7 +198,9 @@
         Bank_AC: paid ? d.bankAc : '',
         Type_of_Pmt: paid ? 'Transfer Bank' : 'สำรองจ่ายแทน',
         Doc_Src: 'PEAK',
-        cc_remark: (paid ? '' : '[สำรองจ่ายแทนกิจการ ' + fmt(d.advance) + ' — ไม่มีเงินออกจากบัญชีบริษัท] ') + d.desc,
+        // ★ ใช้ "คำอธิบายบันทึกบัญชี" จากไฟล์ล้วน ๆ — ใบที่ไม่มีเงินออกดูได้จาก
+        //   Type_of_Pmt = 'สำรองจ่ายแทน' อยู่แล้ว ไม่ต้องเติมข้อความเอง
+        cc_remark: d.desc,
       };
     });
     out.sort(function (a, b) { return String(a.Pmt_Date).localeCompare(String(b.Pmt_Date)); });
