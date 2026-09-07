@@ -169,10 +169,30 @@ Water POG · BIOAXEL · BIGDREAM ใช้โค้ดรากเดียว�
 แลกกับการที่ข้อมูลการเงินแต่ละบริษัทไม่ปนกันเด็ดขาด
 
 ---
-**สถานะตอนนี้ (2026-09-07):** ✅ STEP 1 · 2 · 3 · 5 เสร็จ — เว็บทำงานเต็มระบบ + ล็อกความปลอดภัยแล้ว
-· ⬜ **เหลือ STEP 4 อย่างเดียว** (สร้าง GitHub repo + เปิด Pages ให้ขึ้นออนไลน์)
+**สถานะ: ✅ ครบทั้ง 5 STEP แล้ว (2026-09-07) — เว็บ LIVE**
 
-> ✅ RLS เปิดแล้ว ⇒ push ขึ้น repo public ได้อย่างปลอดภัย — anon key ที่ติดไปกับโค้ด
-> อ่าน/เขียนอะไรไม่ได้ถ้าไม่ login จริง (ตรวจแล้ว: anon อ่าน 0 แถว · เขียนโดนปฏิเสธ · สมัครเองไม่ได้)
->
-> ก่อน push ทุกครั้ง: บั๊มพ์ `?v=` ใน `index.html` และเช็คว่า `config.js` ไม่มี `password` หลงเหลือ
+## 🌐 https://patima-fin.github.io/bigdream-fin/
+
+| | |
+|---|---|
+| repo | `Patima-fin/bigdream-fin` (public) · branch `master` |
+| Supabase | project `bigdream-fin` · ref `dkdxyuqmkujnktemhwxf` |
+| login | Supabase Auth (`USE_SUPABASE_AUTH: true`) · RLS เปิด |
+
+### ผลทดสอบความปลอดภัยบนเว็บจริง (2026-09-07)
+
+| เทส | ผล |
+|---|---|
+| ไม่ login แล้วอ่านข้อมูล | คืน **0 แถว** ทุกตาราง ✅ |
+| ไม่ login แล้วเขียนข้อมูล | `401` ปฏิเสธ ✅ |
+| สมัครบัญชีเอง | `422 Signups not allowed` ✅ |
+
+⇒ `anon key` ที่เปิดเผยอยู่ใน repo public **แตะข้อมูลอะไรไม่ได้เลย** — RLS เป็นตัวกันจริง
+
+---
+
+## ⚠️ ก่อน push ทุกครั้งหลังจากนี้
+
+1. **บั๊มพ์ `?v=` ใน `index.html`** — ตอนนี้อยู่ที่ `20260907d` · ไม่บั๊มพ์ = ทีมเห็นโค้ดเก่าค้าง cache
+2. เช็คว่า `app/config.js` **ไม่มี `password`** และไม่มี `service_role` key หลงเข้ามา (repo เป็น public)
+3. `git add -A && git commit -m "..." && git push`
