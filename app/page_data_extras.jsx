@@ -1729,14 +1729,14 @@ function DataBankPage({ data, setData, toast }) {
       emptyRow: { DATE: data.meta.asOf, BANK_NAME: '', Bank_AC: '', BALANCE: 0, AVAILABLE_BALANCE: 0, HOLD_AMOUNT: 0, NOTE: '' },
       tableMaxHeight: 'min(480px, calc(100vh - 400px))',
       columns: [
-        { key: 'BANK_NAME',          label: 'ธนาคาร', width: 175, render: r => <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 700, color: 'var(--brand-700)' }}><HpBankLogo name={r.BANK_NAME || r.bankName} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.BANK_NAME || r.bankName}</span></div> },
-        { key: 'Bank_AC',            label: 'เลขที่บัญชี', width: 160, mono: true },
-        { key: 'BALANCE',            label: 'ยอดคงเหลือ', align: 'right', width: 160, render: r => {
+        { key: 'BANK_NAME',          label: 'ธนาคาร', width: '22%', render: r => <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 700, color: 'var(--brand-700)' }}><HpBankLogo name={r.BANK_NAME || r.bankName} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.BANK_NAME || r.bankName}</span></div> },
+        { key: 'Bank_AC',            label: 'เลขที่บัญชี', width: '18%', mono: true },
+        { key: 'BALANCE',            label: 'ยอดคงเหลือ', align: 'right', width: '16%', render: r => {
           const v = Number(r.BALANCE ?? r.balance ?? 0);
           return <span style={{ color: v < 0 ? 'var(--bad)' : 'inherit', fontWeight: 600 }}>{fmtNum(v, 2)}</span>;
         }},
-        { key: 'AVAILABLE_BALANCE',  label: 'วงเงินใช้ได้', align: 'right', width: 160, render: r => <span>{fmtNum(Number(r.AVAILABLE_BALANCE||0), 2)}</span> },
-        { key: 'HOLD_AMOUNT',        label: 'ยอด Hold', align: 'right', width: 120, render: r => <span className="muted">{fmtNum(Number(r.HOLD_AMOUNT||0), 2)}</span> },
+        { key: 'AVAILABLE_BALANCE',  label: 'วงเงินใช้ได้', align: 'right', width: '16%', render: r => <span>{fmtNum(Number(r.AVAILABLE_BALANCE||0), 2)}</span> },
+        { key: 'HOLD_AMOUNT',        label: 'ยอด Hold', align: 'right', width: '13%', render: r => <span className="muted">{fmtNum(Number(r.HOLD_AMOUNT||0), 2)}</span> },
         { key: 'DATE',               label: 'วันที่อัปเดต', type: 'date', width: 110 },
         { key: 'NOTE',               label: 'หมายเหตุ' },
       ],
@@ -1862,13 +1862,14 @@ function DataPVPage({ data, setData, toast }) {
         //   และ WHT ส่วนใหญ่เป็น 0 ⇒ ขึ้น "—" ทุกแถว กินที่เปล่า ๆ
         //   (ค่ายังถูกเก็บใน DB และดูได้ในหน้าต่างรายละเอียด — แค่ไม่โชว์ในตาราง)
         //   ที่ว่างที่ได้คืนยกให้ "เลขที่ AP" กับ "ผู้รับเงิน" ที่เดิมตัดบรรทัด
-        // ★ ความกว้างรวมต้องเผื่อจอแคบ — คอลัมน์ตายตัวรวม ~678px ที่เหลือเป็นของ "หมายเหตุ"
-        //   วันที่จ่าย ต้องกว้างพอใส่ "02/01/2026" เต็ม ๆ (96px ตัดเลขท้ายหาย)
-        { key: 'Pmt_Date',   label: 'วันที่จ่าย',  type: 'date', width: 108, align: 'center' },
-        { key: 'PL_PV_No',   label: 'เลขที่ PV',   width: 126, mono: true, align: 'center' },
-        { key: 'AP_No',      label: 'เลขที่ AP',   width: 142, mono: true, align: 'center' },
-        { key: 'Payee',      label: 'ผู้รับเงิน',  width: 190 },
-        { key: 'Net_Amount', label: 'ยอดสุทธิ', align: 'right', headerAlign: 'right', width: 112, sortValue: r => parseNum(r.Net_Amount),
+        // ★ กำหนดเป็น % ไม่ใช่ px — px จะล้นกรอบทันทีที่พื้นที่จริงแคบกว่าผลรวม
+        //   (ซูมเบราว์เซอร์ 125-150% / จอเล็ก) เป็น % แล้วพอดีกรอบเสมอทุกระดับการซูม
+        //   ที่กำหนดรวม 74% ที่เหลือ 26% เป็นของ "หมายเหตุ" (ตัดท้ายด้วย … เมื่อยาวเกิน)
+        { key: 'Pmt_Date',   label: 'วันที่จ่าย',  type: 'date', width: '11%', align: 'center' },
+        { key: 'PL_PV_No',   label: 'เลขที่ PV',   width: '14%', mono: true, align: 'center' },
+        { key: 'AP_No',      label: 'เลขที่ AP',   width: '15%', mono: true, align: 'center' },
+        { key: 'Payee',      label: 'ผู้รับเงิน',  width: '22%' },
+        { key: 'Net_Amount', label: 'ยอดสุทธิ', align: 'right', headerAlign: 'right', width: '12%', sortValue: r => parseNum(r.Net_Amount),
           render: r => <span style={{ fontWeight: 700, color: parseNum(r.Net_Amount) < 0 ? 'var(--bad)' : 'var(--ink-800)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(parseNum(r.Net_Amount), 2)}</span> },
         { key: 'cc_remark',  label: 'หมายเหตุ' },
       ],
