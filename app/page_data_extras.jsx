@@ -1819,7 +1819,7 @@ function DataBankPage({ data, setData, toast }) {
 function DataPVPage({ data, setData, toast }) {
   return (
     <DataCrudPage data={data} setData={setData} toast={toast} config={{
-      title: 'DATA PV · Payment Voucher',
+      title: 'ใบสำคัญจ่าย · Payment Voucher',
       peakTarget: 'pv',      // รับไฟล์ดิบ "รายงานสมุดรายวัน" ของ PEAK ได้ตรง ๆ (app/peak_import.js)
       hideRowActions: true,  // ปุ่มลบมีอยู่แล้วในหน้าต่างรายละเอียด (คลิกที่แถว) — ไม่ต้องซ้ำท้ายแถว
       sub: 'รายการจ่ายเงินจริง · โยนไฟล์ "รายงานสมุดรายวัน" ที่โหลดจาก PEAK ได้เลย · ระบบยุบเป็นรายใบให้เอง',
@@ -1864,10 +1864,15 @@ function DataPVPage({ data, setData, toast }) {
         //   ที่ว่างที่ได้คืนยกให้ "เลขที่ AP" กับ "ผู้รับเงิน" ที่เดิมตัดบรรทัด
         // ★ กำหนดเป็น % ไม่ใช่ px — px จะล้นกรอบทันทีที่พื้นที่จริงแคบกว่าผลรวม
         //   (ซูมเบราว์เซอร์ 125-150% / จอเล็ก) เป็น % แล้วพอดีกรอบเสมอทุกระดับการซูม
-        //   ที่กำหนดรวม 74% ที่เหลือ 26% เป็นของ "หมายเหตุ" (ตัดท้ายด้วย … เมื่อยาวเกิน)
-        { key: 'Pmt_Date',   label: 'วันที่จ่าย',  type: 'date', width: '11%', align: 'center' },
-        { key: 'PL_PV_No',   label: 'เลขที่ PV',   width: '14%', mono: true, align: 'center' },
-        { key: 'AP_No',      label: 'เลขที่ AP',   width: '15%', mono: true, align: 'center' },
+        //   ที่กำหนดรวม 68% ที่เหลือ 32% เป็นของ "หมายเหตุ" (ตัดท้ายด้วย … เมื่อยาวเกิน)
+        // ★ 3 คอลัมน์แรกบีบให้พอดีเนื้อหาจริง — ค่าที่ยาวสุดคงที่ ไม่โตไปกว่านี้:
+        //   วันที่ 10 ตัว (~90px) · PV-202601001 (~103px) · EXP-20260100001 (~124px)
+        //   (รวม padding แล้ว · หัวคอลัมน์ + ลูกศรเรียง + ปุ่มกรอง กินอีก ~96px ต่อช่อง)
+        //   คิดที่กรอบแคบสุดที่ยังต้องอ่านออก ≈ 970px (จอ 1366 + sidebar กาง) ⇒ 10/11/13%
+        //   อย่าลดต่ำกว่านี้ — จะเริ่มตัดหัวคอลัมน์/เลขที่เอกสารด้วย … บนจอเล็ก
+        { key: 'Pmt_Date',   label: 'วันที่จ่าย',  type: 'date', width: '10%', align: 'center' },
+        { key: 'PL_PV_No',   label: 'เลขที่ PV',   width: '11%', mono: true, align: 'center' },
+        { key: 'AP_No',      label: 'เลขที่ AP',   width: '13%', mono: true, align: 'center' },
         { key: 'Payee',      label: 'ผู้รับเงิน',  width: '22%' },
         { key: 'Net_Amount', label: 'ยอดสุทธิ', align: 'right', headerAlign: 'right', width: '12%', sortValue: r => parseNum(r.Net_Amount),
           render: r => <span style={{ fontWeight: 700, color: parseNum(r.Net_Amount) < 0 ? 'var(--bad)' : 'var(--ink-800)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(parseNum(r.Net_Amount), 2)}</span> },
@@ -4072,7 +4077,7 @@ function DataPayablePage({ data, setData, toast }) {
       {/* Page header */}
       <div className="page-head anim-in">
         <div>
-          <h1 className="page-title">DATA AP Outstanding · ใบแจ้งหนี้เจ้าหนี้คงค้าง</h1>
+          <h1 className="page-title">เจ้าหนี้คงค้าง · AP Outstanding</h1>
           <div className="page-sub">RAW_AP_OUTSTANDING · 54 คอลัมน์ · วางข้อมูล RAW ได้เลย</div>
           <DataFreshnessBadge rows={data.payables} />
         </div>
@@ -4085,7 +4090,7 @@ function DataPayablePage({ data, setData, toast }) {
             }))}
             filename="AP_outstanding"
             sheetName="AP Outstanding"
-            title="DATA AP Outstanding · ใบแจ้งหนี้เจ้าหนี้คงค้าง"
+            title="เจ้าหนี้คงค้าง · AP Outstanding"
           />
           <PrintButton />
           <button className="btn btn-ghost"

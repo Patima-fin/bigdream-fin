@@ -37,9 +37,9 @@ data layer: `data.js` (shape + cache) → `data_sync.js` / `data_supabase.js` (s
 | `cashflow_present` | Executive Cash Flow | `CashFlowPresentPage` | `page_cashflow_present.jsx` |
 | `bank_diary` | Bank Daily | `BankDiaryPage` | `page_bank_diary.jsx` |
 | `receipts` | ประวัติรับเงิน | `ReceiptsPage` | `page_receipts.jsx` |
-| `invoices` | ใบแจ้งหนี้คงค้าง | `InvoicesPage` | `page_invoices.jsx` |
-| `data_pv` | DATA PV | `DataPVPage` | `page_data_extras.jsx` |
-| `data_payable` | DATA AP Outstanding | `DataPayablePage` | `page_data_extras.jsx` |
+| `invoices` | ลูกหนี้คงค้าง | `InvoicesPage` | `page_invoices.jsx` |
+| `data_pv` | ใบสำคัญจ่าย | `DataPVPage` | `page_data_extras.jsx` |
+| `data_payable` | เจ้าหนี้คงค้าง | `DataPayablePage` | `page_data_extras.jsx` |
 | `daily_balance` | บันทึกยอดธนาคาร | `DailyBalancePage` | `page_daily_balance.jsx` |
 | `audit_log` | Audit Log | `AuditLogPage` | `page_audit_log.jsx` |
 | `backup` | สำรอง / กู้คืนข้อมูล | `BackupPage` | `page_backup.jsx` |
@@ -77,9 +77,9 @@ BIGDREAM ใช้โปรแกรมบัญชี **PEAK** (BIO ใช้ *
 
 | รายงาน PEAK | หน้าในแอป | target |
 |---|---|---|
-| รายงานใบแจ้งหนี้ | ใบแจ้งหนี้คงค้าง | `iv` |
-| รายงานบันทึกรายจ่าย | DATA AP Outstanding | `ap` |
-| รายงานสมุดรายวัน | DATA PV | `pv` |
+| รายงานใบแจ้งหนี้ | ลูกหนี้คงค้าง | `iv` |
+| รายงานบันทึกรายจ่าย | เจ้าหนี้คงค้าง | `ap` |
+| รายงานสมุดรายวัน | ใบสำคัญจ่าย | `pv` |
 
 **จุดที่ hook ไว้ 3 ที่** (ทั้งหมดอ่าน workbook แล้วทำเป็น TSV เหมือนกัน):
 - `page_data_extras.jsx` → `DataCrudPage.handleFileUpload` (เปิดใช้ด้วย `config.peakTarget`)

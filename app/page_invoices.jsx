@@ -666,7 +666,7 @@ function InvoicesPage({ data, setData, toast }) {
       {!fullscreen && (
       <div className="page-head anim-in">
         <div>
-          <h1 className="page-title">ใบแจ้งหนี้คงค้าง</h1>
+          <h1 className="page-title">ลูกหนี้คงค้าง</h1>
           <div className="page-sub">RAW_IV_OUTSTANDING · {rows.length} ใบ · ผู้ดูแล: ฝ่ายติดตามรับเงิน</div>
         </div>
         <div className="page-head-r">
@@ -694,7 +694,7 @@ function InvoicesPage({ data, setData, toast }) {
             ]}
             filename="invoices_outstanding"
             sheetName="ใบแจ้งหนี้"
-            title="ใบแจ้งหนี้คงค้าง (IV Outstanding)"
+            title="ลูกหนี้คงค้าง (IV Outstanding)"
           />
           <PrintButton />
           {canEditPage && (
@@ -740,7 +740,7 @@ function InvoicesPage({ data, setData, toast }) {
           border: '1px solid #bee3f8', borderRadius: 8,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <strong style={{ color: '#1e4fbd', fontSize: 13 }}>โหมดเต็มจอ · ใบแจ้งหนี้คงค้าง</strong>
+            <strong style={{ color: '#1e4fbd', fontSize: 13 }}>โหมดเต็มจอ · ลูกหนี้คงค้าง</strong>
             <span style={{ fontSize: 11, color: 'var(--ink-500)' }}>
               ทั้งหมด {rows.length} ใบ · ค้างชำระ {counts.outstanding} · ติดปัญหา {counts.issue}
             </span>
@@ -3491,7 +3491,7 @@ function IvReportStandalonePage({ data, setData, toast }) {
     <div className="page iv-report-page">
       <div className="page-head anim-in">
         <div>
-          <h1 className="page-title">รายงานติดตามใบแจ้งหนี้คงค้าง</h1>
+          <h1 className="page-title">รายงานติดตามลูกหนี้คงค้าง</h1>
           <div className="page-sub">
             ข้อมูล ณ {fmtDate(today)} · ค้างชำระ {pending.length} ใบ · รวม {rows.length} ใบ
           </div>
@@ -3513,7 +3513,7 @@ function IvReportStandalonePage({ data, setData, toast }) {
             ]}
             filename="iv_tracking_report"
             sheetName="ติดตาม IV"
-            title="รายงานติดตามใบแจ้งหนี้คงค้าง"
+            title="รายงานติดตามลูกหนี้คงค้าง"
           />
           <button className="btn btn-ghost" onClick={handleSaveImage} title="บันทึกหน้านี้เป็นรูป PNG (เลย์เอาท์ A4 แนวตั้ง)">
             <Icon name="download" size={14} /> บันทึกเป็นรูป
@@ -3559,7 +3559,7 @@ function IvReportStandalonePage({ data, setData, toast }) {
           </div>
           <div>
             <div className="iv-print-co">BIG DREAM HOLDINGS</div>
-            <div className="iv-print-title">รายงานติดตามใบแจ้งหนี้คงค้าง</div>
+            <div className="iv-print-title">รายงานติดตามลูกหนี้คงค้าง</div>
             <div className="iv-print-sub">IV Tracking Report</div>
           </div>
         </div>

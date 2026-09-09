@@ -27,7 +27,7 @@
     'รายงานบันทึกรายจ่าย': 'ap',
     'รายงานสมุดรายวัน':    'pv',
   };
-  var TARGET_LABEL = { iv: 'ใบแจ้งหนี้คงค้าง', ap: 'DATA AP (เจ้าหนี้คงค้าง)', pv: 'DATA PV (ใบสำคัญจ่าย)' };
+  var TARGET_LABEL = { iv: 'ลูกหนี้คงค้าง', ap: 'เจ้าหนี้คงค้าง', pv: 'ใบสำคัญจ่าย' };
   var REPORT_LABEL = { iv: 'รายงานใบแจ้งหนี้', ap: 'รายงานบันทึกรายจ่าย', pv: 'รายงานสมุดรายวัน' };
 
   function txt(v) { return String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim(); }
