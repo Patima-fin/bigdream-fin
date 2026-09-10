@@ -6,20 +6,22 @@
  *  หรือดันขึ้นหน้า #cashflow_present ได้ตรง ๆ
  *
  *  ★ ต่างจาก BIOAXEL ตรงไหน (อ่านก่อนแก้)
- *    BIO ใช้ EXPRESS → หน้านั้นต้อง "นำเข้าไฟล์งบกระทบยอดธนาคาร" แล้วไล่จับคู่
- *    บรรทัดธนาคาร ↔ ใบสำคัญจ่าย ด้วยเลขเช็ค (โค้ดจับคู่ ~700 บรรทัด)
- *    BIGDREAM ใช้ PEAK ซึ่ง "รายงานสมุดรายวัน" ยุบเป็น 1 ใบจ่าย = 1 แถวอยู่แล้ว
- *    (app/peak_import.js) และ **รายการทั้งหมดตรงกับหน้าใบสำคัญจ่ายเป๊ะ**
- *    ⇒ หน้านี้จึงไม่มีตัวนำเข้าไฟล์ของตัวเอง อ่านจาก data.pvVouchers ตรง ๆ
- *      (นำเข้าที่หน้า "ใบสำคัญจ่าย" ที่เดียว sync ทั้งทีม ไม่เก็บข้อมูลซ้ำ 2 ก้อน)
+ *    BIO ใช้ EXPRESS → ต้องไล่จับคู่บรรทัดธนาคาร ↔ ใบสำคัญจ่ายด้วย "เลขเช็ค" ซึ่งเขียน
+ *    ไม่ตรงกันบ่อย ต้องมีตัวจับคู่แบบผ่อนปรน + เทียบยอดกันพลาด (~700 บรรทัด)
+ *    BIGDREAM ใช้ PEAK ซึ่ง GL กับสมุดรายวันใช้ "เลขที่รายวัน" (PV-xxx / RV-xxx) ตัวเดียวกัน
+ *    ⇒ join ตรง ๆ ด้วยเลขเอกสาร ไม่ต้องมีตัวจับคู่เลย
+ *    ⇒ ใบสำคัญจ่ายก็ยังนำเข้าที่หน้า "ใบสำคัญจ่าย" ที่เดียว (sync ทั้งทีม ไม่เก็บซ้ำ 2 ก้อน)
+ *      หน้านี้นำเข้าเฉพาะ GL ซึ่งไม่มีหน้าอื่นรับ
  *
- *  แหล่งข้อมูล 3 ชั้น:
- *    1) data.pvVouchers            = ใบสำคัญจ่ายจาก PEAK (เงินออกจริงจากบัญชี)
- *    2) cfCoding.extra             = "รายการนอก PV" ที่คีย์เอง (เงินรับ / ดอกเบี้ยรับ /
- *                                    ค่าธรรมเนียมที่ธนาคารหักเอง / โอนระหว่างบัญชี)
- *                                    ★ สมุด "จ่าย" ของ PEAK ไม่มีฝั่งรับ ⇒ ถ้าไม่คีย์
- *                                      งบจะมีแต่ขาจ่าย
- *    3) cfCoding.rules             = หมวดที่คนเคยยืนยัน (ระบบเรียนไว้ใช้เดือนถัดไป)
+ *  แหล่งข้อมูล 4 ชั้น:
+ *    1) data.pvVouchers            = ใบสำคัญจ่ายจาก PEAK (เงินออกจริงจากบัญชี + WHT)
+ *    2) cfCoding['gl:<acct>:<ym>'] = บรรทัดเดินบัญชีจาก "รายงานบัญชีแยกประเภท" ของ PEAK
+ *                                    ★ แหล่งเดียวที่ให้ "เงินเข้า (RV)" + "ยอดยกมา"
+ *                                      เพราะสมุด "จ่าย" ของ PEAK ไม่มีฝั่งรับเลย
+ *                                    ★ เอามาเฉพาะบรรทัดที่เลขที่รายวันไม่มีใน PV
+ *                                      (PV มี WHT/ยอดก่อนหักที่ GL ไม่มี → PV ชนะ)
+ *    3) cfCoding.extra             = "รายการนอก PV" ที่คีย์เอง (เผื่อที่ไม่มีทั้ง PV และ GL)
+ *    4) cfCoding.rules             = หมวดที่คนเคยยืนยัน (ระบบเรียนไว้ใช้เดือนถัดไป)
  *
  *  ⚠️ ใบที่ผู้บริหารสำรองจ่ายแทน (Net_Amount = 0 · Type_of_Pmt = "สำรองจ่ายแทน")
  *     **ไม่ใช่กระแสเงินสดของบริษัท** — ตัดออกจากตารางลงรหัสตั้งแต่ต้น แล้วบอกจำนวน
@@ -1123,6 +1125,7 @@
     const [catMgr, setCatMgr] = useState(false);
     const [bulk, setBulk] = useState(false);
     const [extraEdit, setExtraEdit] = useState(null);   // {} = เพิ่มใหม่ · {id,…} = แก้ไข
+    const fileGl = useRef(null);
 
     /* ── โหลดจากส่วนกลาง ── */
     useEffect(() => {
@@ -1188,18 +1191,63 @@
     /* ── รายการนอก PV ที่คีย์เอง ── */
     const extraRows = useMemo(() => (store.extra && Array.isArray(store.extra.rows) ? store.extra.rows : []), [store.extra]);
 
+    /* ── บรรทัดเดินบัญชีจาก GL (รายงานบัญชีแยกประเภท ของ PEAK) ──
+         id = 'gl:<acctKey>:<ym>' · ยอดยกมาติดอยู่กับบัคเก็ตของเดือนแรกในช่วงที่ส่งออก */
+    const glBuckets = useMemo(() => {
+      const out = [];
+      Object.keys(store).forEach(id => {
+        if (id.indexOf('gl:') !== 0) return;
+        const b = store[id]; if (!b || !Array.isArray(b.lines)) return;
+        out.push(Object.assign({ id }, b));
+      });
+      return out.sort((a, b) => (a.ym === b.ym ? String(a.acctKey).localeCompare(String(b.acctKey)) : (a.ym < b.ym ? -1 : 1)));
+    }, [store]);
+
+    /* ยอดยกมาที่ GL ประกาศ + ปลายงวดตาม GL รายบัญชี — ตัวตรวจว่าเราเก็บรายการครบไหม */
+    const glAcct = useMemo(() => {
+      const m = {};
+      glBuckets.forEach(b => {
+        const g = m[b.acctKey] || (m[b.acctKey] = { key: b.acctKey, acctNo: b.acctNo, bankName: b.bankName,
+          alias: b.alias, code: b.acctCode, opening: null, openingYm: '', inSum: 0, outSum: 0, n: 0, yms: [] });
+        if (b.opening != null && (!g.openingYm || b.ym < g.openingYm)) { g.opening = cfcNum(b.opening); g.openingYm = b.ym; }
+        (b.lines || []).forEach(L => { g.inSum += cfcNum(L.in); g.outSum += cfcNum(L.out); g.n++; });
+        if (g.yms.indexOf(b.ym) < 0) g.yms.push(b.ym);
+      });
+      Object.values(m).forEach(g => { g.yms.sort(); g.closing = (g.opening || 0) + g.inSum - g.outSum; });
+      return m;
+    }, [glBuckets]);
+
+    /* docNo → บัญชีที่ GL บอก — ใช้เติมบัญชีให้แถว PV ที่ regex ดึง Bank_AC ไม่ออก */
+    const glAcctByDoc = useMemo(() => {
+      const m = {};
+      glBuckets.forEach(b => (b.lines || []).forEach(L => {
+        const k = cfcT(L.docNo).toUpperCase(); if (k) m[k] = b;
+      }));
+      return m;
+    }, [glBuckets]);
+
     /* ── แถวลงรหัสทั้งหมด (ยังไม่กรองเดือน/บัญชี) ──
          (ก) ใบสำคัญจ่ายจาก PEAK — 1 ใบ = 1 แถว (peak_import ยุบ double-entry ให้แล้ว)
-         (ข) รายการนอก PV ที่คีย์เอง — ขารับ / ค่าธรรมเนียม / โอนระหว่างบัญชี           */
-    const { allRows, noCash } = useMemo(() => {
+         (ข) บรรทัด GL ที่ "ไม่มีใน PV" — ขารับ (RV) / ค่าธรรมเนียมที่ธนาคารหักเอง / โอนระหว่างบัญชี
+         (ค) รายการนอก PV ที่คีย์เอง — เผื่อรายการที่ไม่มีทั้งใน PV และ GL
+       ★ ลำดับความสำคัญ: PV ชนะ GL เสมอเมื่อเลขที่รายวันตรงกัน — ใบ PV มี WHT/ยอดก่อนหัก
+         ที่ GL ไม่มี · GL เอามาเฉพาะที่ PV ไม่ครอบคลุม (ไม่งั้นยอดเบิ้ล)              */
+    const { allRows, noCash, glOnlyN, pvNotInGl } = useMemo(() => {
       const out = [], skip = [];
+      const pvDocs = new Set();
+      (data.pvVouchers || []).forEach(pv => { const k = cfcT(pv.PL_PV_No).toUpperCase(); if (k) pvDocs.add(k); });
+      const glSeen = new Set();
+
       (data.pvVouchers || []).forEach((pv, i) => {
         const iso = cfcISO(pv.Pmt_Date); if (!iso) return;
         const amt = cfcNum(pv.Net_Amount);
         const docNo = cfcT(pv.PL_PV_No), apNo = cfcT(pv.AP_No);
         // ★ ใบที่ไม่มีเงินออกจากบัญชีบริษัท (ผู้บริหารสำรองจ่ายแทน) ไม่ใช่กระแสเงินสด
         if (!amt) { skip.push({ iso, docNo, payee: cfcT(pv.Payee), gross: cfcNum(pv.Amount), why: cfcT(pv.Type_of_Pmt) }); return; }
-        const acc = acctOf(pv.Bank_AC);
+        // ★ บัญชีจาก GL ชนะ regex ที่งัดเลขบัญชีจากคำอธิบาย — GL บอกบัญชีมาตรง ๆ ในหัวบล็อก
+        const gl = glAcctByDoc[docNo.toUpperCase()];
+        if (gl) glSeen.add(docNo.toUpperCase());
+        const acc = gl ? { no: gl.acctNo, label: gl.acctLabel } : acctOf(pv.Bank_AC);
         const memo = cfcT(pv.cc_remark || pv.Remark), payee = cfcT(pv.Payee);
         const row = {
           key: 'pv|' + docNo + '|' + apNo + '|' + i, src: 'pv', idx: i, iso,
@@ -1208,12 +1256,34 @@
           out: amt > 0 ? amt : 0, in: amt < 0 ? -amt : 0,
           wht: cfcNum(pv.WHT), gross: cfcNum(pv.Amount),
           acctNo: acc.no, acctLabel: acc.label, acctRaw: cfcT(pv.Bank_AC),
-          payType: cfcT(pv.Type_of_Pmt), docSrc: cfcT(pv.Doc_Src),
+          payType: cfcT(pv.Type_of_Pmt), docSrc: cfcT(pv.Doc_Src), inGl: !!gl,
           matchText: [memo, payee].filter(Boolean).join(' '),
         };
         row.sug = engine(row);
         out.push(row);
       });
+
+      let glOnly = 0;
+      glBuckets.forEach(b => (b.lines || []).forEach((L, i) => {
+        const docNo = cfcT(L.docNo);
+        if (docNo && pvDocs.has(docNo.toUpperCase())) return;    // ใบเดียวกับ PV → ไม่เอามาซ้ำ
+        const iso = cfcISO(L.iso); if (!iso) return;
+        const inn = cfcNum(L.in), o = cfcNum(L.out);
+        if (!inn && !o) return;
+        const memo = cfcT(L.memo), payee = cfcT(L.payee);
+        const row = {
+          key: 'gl|' + b.id + '|' + docNo + '|' + i, src: 'gl', idx: 500000 + cfcNum(L.seq), iso,
+          docKey: 'g:' + (docNo || (b.acctKey + ':' + iso + ':' + i)),
+          docNo: docNo || '(ไม่มีเลขที่)', apNo: cfcT(L.ref), payee, memo,
+          note: [memo, payee].filter(Boolean).join(' / '),
+          out: o, in: inn, wht: 0, gross: inn || o,
+          acctNo: b.acctNo, acctLabel: b.acctLabel, acctRaw: b.acctNo,
+          payType: 'GL', docSrc: 'GL',
+          matchText: [memo, payee].filter(Boolean).join(' '),
+        };
+        row.sug = engine(row);
+        out.push(row); glOnly++;
+      }));
       extraRows.forEach((e, i) => {
         const iso = cfcISO(e.iso); if (!iso) return;
         const acc = acctOf(e.acctRaw);
@@ -1235,15 +1305,33 @@
       out.sort((a, b) => (a.iso !== b.iso ? (a.iso < b.iso ? -1 : 1)
         : (a.acctNo !== b.acctNo ? String(a.acctNo).localeCompare(String(b.acctNo))
         : (Number(a.idx || 0) - Number(b.idx || 0)))));
-      return { allRows: out, noCash: skip };
-    }, [data.pvVouchers, extraRows, engine, acctOf]);
+      /* ★ ใบ PV ที่ "มีเงินออกจริง" + อยู่ในช่วงวันที่ของ GL แต่ไม่โผล่ใน GL = ข้อมูลสองฝั่งไม่ตรงกัน
+           BIGDREAM มีบัญชีธนาคารบัญชีเดียว ⇒ ไม่ใช่เรื่อง "จ่ายจากบัญชีอื่น" แต่มักเป็นใบที่ถูก
+           ยกเลิก/แก้เลขใน PEAK หลังนำเข้า หรือไฟล์ GL เก่ากว่าข้อมูล PV — ต้องเห็นเป็นรายใบ
+           ⚠️ ต้องกรองด้วยช่วงวันที่ของ GL ด้วย ไม่งั้น PV ปีก่อน (ที่ GL ไม่ได้ครอบ) จะถูกนับเป็น
+              "หาย" ทั้งที่แค่ยังไม่ได้โหลด GL ปีนั้น */
+      let glFrom = '', glTo = '';
+      glBuckets.forEach(b => {
+        const f = cfcISO(b.from) || (b.ym + '-01'), t = cfcISO(b.to) || (b.ym + '-31');
+        if (!glFrom || f < glFrom) glFrom = f;
+        if (!glTo || t > glTo) glTo = t;
+      });
+      const missing = glBuckets.length
+        ? out.filter(r => r.src === 'pv' && !r.inGl && r.iso >= glFrom && r.iso <= glTo) : [];
+      return { allRows: out, noCash: skip, glOnlyN: glOnly, pvNotInGl: missing };
+    }, [data.pvVouchers, extraRows, glBuckets, glAcctByDoc, engine, acctOf]);
 
     const allYms = useMemo(() => [...new Set(allRows.map(r => String(r.iso).slice(0, 7)))].filter(Boolean).sort().reverse(), [allRows]);
     const allAccts = useMemo(() => {
       const m = {}; allRows.forEach(r => { const k = cfcAcctKey(r.acctNo, r.acctLabel); if (!m[k]) m[k] = { key: k, no: r.acctNo, label: r.acctLabel }; });
       return Object.values(m).sort((a, b) => String(a.label).localeCompare(String(b.label), 'th'));
     }, [allRows]);
-    useEffect(() => { if (!ym && allYms.length) setYm(allYms[0]); }, [allYms, ym]);
+    /* ★ ตั้งเดือนล่าสุดให้ "ครั้งแรกที่มีข้อมูล" เท่านั้น — ห้ามผูก ym ไว้ใน deps
+         ไม่งั้นพอผู้ใช้เลือก "ทุกเดือน" (ym='') effect จะเด้งกลับไปเดือนล่าสุดทันที
+         = ตัวเลือก "ทุกเดือน" กดไม่ติดตลอดกาล (และตัวเทียบยอดกับ GL ซึ่งทำงานเฉพาะ
+         ตอนดูทุกเดือน ก็ไม่มีวันโผล่) */
+    const ymInit = useRef(false);
+    useEffect(() => { if (!ymInit.current && allYms.length) { ymInit.current = true; setYm(allYms[0]); } }, [allYms]);
 
     const rows = useMemo(() => allRows.filter(r =>
       (!ym || String(r.iso).slice(0, 7) === ym) &&
@@ -1283,17 +1371,30 @@
       });
       const list = Object.values(by).filter(g => !acct || g.key === acct);
       list.forEach(g => {
+        /* ★ ยอดยกมาจาก GL ชนะการคีย์มือ — GL คือสมุดบัญชีจริง คีย์เองไว้ใช้ตอนที่ยังไม่มี GL
+             (ถ้ามีทั้งคู่แล้วไม่ตรงกัน = ต้องรู้ จึงโชว์ทั้งสองค่าแล้วขึ้นสีแดง) */
+        const gl = glAcct[g.key];
+        g.glOpen = gl && gl.opening != null ? gl.opening : null;
         g.manOpen = manualOpen[g.key];
-        g.opening = (g.manOpen == null ? 0 : cfcNum(g.manOpen)) + g.before;
+        g.baseOpen = g.glOpen != null ? g.glOpen : (g.manOpen == null ? null : cfcNum(g.manOpen));
+        g.openSrc = g.glOpen != null ? 'gl' : (g.manOpen == null ? '' : 'manual');
+        g.openDiff = (g.glOpen != null && g.manOpen != null) ? (g.glOpen - cfcNum(g.manOpen)) : null;
+        g.opening = (g.baseOpen == null ? 0 : g.baseOpen) + g.before;
         g.closing = g.opening + g.inSum - g.outSum;
+        /* ปลายงวดตาม GL (ทั้งช่วงที่นำเข้า) — เทียบได้เฉพาะตอนดู "ทุกเดือน" ไม่กรองเดือน */
+        g.glClosing = gl ? gl.closing : null;
+        g.glDiff = (!ym && gl && g.baseOpen != null) ? (g.closing - gl.closing) : null;
       });
       const tot = list.reduce((a, g) => ({
         opening: a.opening + g.opening, inSum: a.inSum + g.inSum, outSum: a.outSum + g.outSum,
         closing: a.closing + g.closing, n: a.n + g.n, uncoded: a.uncoded + g.uncoded,
-        keyed: a.keyed + (g.manOpen == null ? 0 : 1),
-      }), { opening: 0, inSum: 0, outSum: 0, closing: 0, n: 0, uncoded: 0, keyed: 0 });
+        keyed: a.keyed + (g.baseOpen == null ? 0 : 1),
+        openBad: a.openBad + (g.openDiff != null && Math.abs(g.openDiff) > 0.02 ? 1 : 0),
+        glBad: a.glBad + (g.glDiff != null && Math.abs(g.glDiff) > 0.02 ? 1 : 0),
+        glOk: a.glOk + (g.glDiff != null && Math.abs(g.glDiff) <= 0.02 ? 1 : 0),
+      }), { opening: 0, inSum: 0, outSum: 0, closing: 0, n: 0, uncoded: 0, keyed: 0, openBad: 0, glBad: 0, glOk: 0 });
       return { list, tot };
-    }, [allRows, allAccts, ym, acct, manualOpen]);
+    }, [allRows, allAccts, ym, acct, manualOpen, glAcct]);
 
     /* ยอดเงินสดต้นงวดรวมของ "ขอบเขตที่กรองอยู่" — ใช้เป็นบรรทัดต้นงวด/ปลายงวดในงบที่ส่งออก
        ★ ต้องเป็นตัวเดียวกับที่ตาราง "สรุปรายบัญชี" โชว์ ไม่งั้นไฟล์กับหน้าจอไม่ตรงกัน
@@ -1468,6 +1569,81 @@
       } catch (e) { setBusy(''); toast && toast('อ่านไฟล์ไม่สำเร็จ: ' + (e && e.message || ''), 'error'); }
     }
 
+    /* ── นำเข้า GL (รายงานบัญชีแยกประเภท ของ PEAK) ────────────────────────
+       1 ไฟล์ = 1 บัญชีธนาคาร · เลือกหลายไฟล์พร้อมกันได้ (บัญชีละไฟล์)
+       ★ นำเข้าซ้ำบัญชี+เดือนเดิม = ทับของเดิม ไม่บวกเพิ่ม ⇒ โหลด GL ใหม่ทุกเดือนได้เรื่อย ๆ
+       ⚠️ ลบบัคเก็ตเดือนเก่าของ "บัญชีเดียวกันที่อยู่ในช่วงวันที่ของไฟล์" ก่อนเสมอ —
+          ไม่งั้นรายการที่ถูกลบ/แก้ใน PEAK จะค้างอยู่ในระบบตลอดกาล */
+    async function onGlFiles(files) {
+      if (!files || !files.length) return;
+      if (!window.PeakImport || !window.PeakImport.readGL) {
+        toast && toast('ยังไม่ได้โหลด app/peak_import.js — ตรวจลำดับ <script> ใน index.html', 'error'); return;
+      }
+      setBusy('กำลังอ่านไฟล์ GL…');
+      const next = Object.assign({}, store); const notes = [];
+      try {
+        for (const f of Array.from(files)) {
+          const wb = await cfcReadWorkbook(f);
+          let res = null;
+          for (const sn of wb.SheetNames) {
+            const r = window.PeakImport.readGL(wb.Sheets[sn]);
+            if (r && r.ok && r.accounts.length) { res = r; break; }
+            if (r && !r.ok && !res) res = r;
+          }
+          if (!res) { notes.push('❌ ' + f.name + ' — ไม่ใช่ไฟล์ของ PEAK'); continue; }
+          if (!res.ok) { notes.push('❌ ' + f.name + ' — ' + res.message); continue; }
+          res.accounts.forEach(a => {
+            const key = cfcAcctKey(a.acctNo, a.alias || a.code);
+            const acc = acctOf(a.acctNo);
+            const label = (a.acctNo && acc.no ? acc.label : (cfcT(a.bankName) || a.alias || a.code)
+              + (cfcDigits(a.acctNo) ? ' ···' + cfcDigits(a.acctNo).slice(-4) : ''));
+            const byYm = {};
+            a.lines.forEach(L => { const k = String(L.iso).slice(0, 7); if (k) (byYm[k] = byYm[k] || []).push(L); });
+            const yms = Object.keys(byYm).sort();
+            // ทิ้งบัคเก็ตเดิมของบัญชีนี้ที่อยู่ในช่วงวันที่ของไฟล์ (กันรายการที่ถูกลบใน PEAK ค้าง)
+            const fromYm = String(a.from || (yms[0] || '')).slice(0, 7);
+            const toYm = String(a.to || (yms[yms.length - 1] || '')).slice(0, 7);
+            Object.keys(next).forEach(id => {
+              if (id.indexOf('gl:' + key + ':') !== 0) return;
+              const m = id.slice(('gl:' + key + ':').length);
+              if (fromYm && toYm && m >= fromYm && m <= toYm) delete next[id];
+            });
+            yms.forEach(k => {
+              next['gl:' + key + ':' + k] = {
+                acctKey: key, acctCode: a.code, alias: a.alias, acctNo: a.acctNo,
+                bankName: a.bankName, acctLabel: label, ym: k,
+                // ยอดยกมาติดกับเดือนแรกของช่วงที่ส่งออกเท่านั้น
+                opening: (k === yms[0] && a.opening != null) ? a.opening : null,
+                from: a.from, to: a.to,
+                lines: byYm[k], uploadedAt: new Date().toISOString(), file: f.name,
+              };
+            });
+            const din = a.lines.reduce((s, L) => s + cfcNum(L.in), 0);
+            const dout = a.lines.reduce((s, L) => s + cfcNum(L.out), 0);
+            notes.push('✅ ' + f.name + ' — ' + label + ' (' + a.code + '/' + a.alias + '): '
+              + a.lines.length + ' รายการ · ' + yms.join(', ')
+              + (a.opening != null ? ' · ยอดยกมา ' + cfcMoney(a.opening) : ' · ไม่มียอดยกมาในไฟล์')
+              + ' · รับ ' + cfcMoney(din) + ' / จ่าย ' + cfcMoney(dout)
+              + ' · ปลายงวด ' + cfcMoney((a.opening || 0) + din - dout));
+          });
+          (res.skipped || []).forEach(a => notes.push('⏭ ข้ามบัญชี ' + a.code + ' ' + a.alias + ' — ไม่ใช่บัญชีเงินฝากธนาคาร'));
+        }
+        if (!notes.some(n => n[0] === '✅')) { setBusy(''); toast && toast(notes.join('\n') || 'ไม่มีอะไรให้นำเข้า', 'error'); return; }
+        const r = await persist(next);
+        setBusy('');
+        toast && toast(notes.join('\n') + (r.shared ? '\nแชร์ทั้งทีมแล้ว' : '\nบันทึกในเครื่อง'),
+          notes.some(n => n[0] === '❌') ? 'error' : undefined);
+      } catch (e) { setBusy(''); toast && toast('อ่านไฟล์ไม่สำเร็จ: ' + (e && e.message || ''), 'error'); }
+    }
+    function clearGl() {
+      if (!canEdit || !glBuckets.length) return;
+      if (!confirm('ลบบรรทัด GL ที่นำเข้าไว้ทั้งหมด ' + glBuckets.length + ' ก้อน?\n'
+        + 'หมวดที่ยืนยันไว้ยังอยู่ (เก็บแยกในกฎ) — นำเข้า GL ใหม่แล้วจะกลับมาเหมือนเดิม')) return;
+      const next = Object.assign({}, store);
+      glBuckets.forEach(b => { delete next[b.id]; });
+      persist(next).then(r => toast && toast('ลบ GL ที่นำเข้าไว้แล้ว', r.shared ? undefined : 'error'));
+    }
+
     /* ── รายการนอก PV + ยอดต้นงวด ── */
     function saveExtraRow(r) {
       if (!canEdit) return;
@@ -1576,8 +1752,16 @@
               — payload ที่ส่งขึ้นไปมีทุกเดือนทุกบัญชี ต้นงวดจึงต้องครบทุกบัญชีด้วย
            ★ ใช้ manOpen ดิบ (= ยอด ณ เดือนแรกสุดของทั้งชุด) ไม่ใช่ยอดต้นเดือนที่กรองอยู่
               เพราะ stm.txns ที่ส่งไปคือรายการ "ทุกเดือน" */
+        /* ★ ที่มาของยอดต้นงวดต้องชุดเดียวกับตาราง "สรุปรายบัญชี" คือ GL ก่อน แล้วค่อยที่คีย์เอง
+             (เคยอ่านเฉพาะที่คีย์เอง → พอยอดยกมามาจาก GL แล้ว payload ที่ดันขึ้นไปได้ต้นงวด 0
+              หน้า Executive Cash Flow เลยโชว์เงินสดต้นงวด/ปลายงวดผิดแบบเงียบ ๆ) */
         const openingByAcct = {};
-        allAccts.forEach(a => { if (manualOpen[a.key] != null) openingByAcct[a.label] = cfcNum(manualOpen[a.key]); });
+        allAccts.forEach(a => {
+          const g = glAcct[a.key];
+          const v = (g && g.opening != null) ? g.opening
+            : (manualOpen[a.key] == null ? null : cfcNum(manualOpen[a.key]));
+          if (v != null) openingByAcct[a.label] = v;
+        });
         const opening = Object.keys(openingByAcct).length
           ? Object.keys(openingByAcct).reduce((a, k) => a + openingByAcct[k], 0) : 0;
         const stm = { txns: allTxns, opening, openingByAcct };
@@ -1698,6 +1882,9 @@
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {canEdit && <button style={btn()} onClick={() => fileGl.current && fileGl.current.click()}
+                title={'โหลด "รายงานบัญชีแยกประเภท" ของบัญชีธนาคารจาก PEAK แล้วอัปได้เลย — บัญชีละไฟล์ เลือกหลายไฟล์พร้อมกันได้\n'
+                  + 'เป็นแหล่งเดียวที่ให้รายการเงินเข้า (RV) + ยอดยกมา ซึ่งรายงานสมุดรายวันไม่มี'}>📥 นำเข้า GL</button>}
               {canEdit && <button style={btn()} title="เพิ่ม / แก้ชื่อ / ลบ หมวดในผังงบกระแสเงินสด" onClick={() => setCatMgr(true)}>🗂 จัดการหมวด</button>}
               {canEdit && <button style={btn()} title="ลงหมวดทีเดียวทั้งคู่ค้า — เร็วที่สุดตอนเริ่มเดือนแรก" onClick={() => setBulk(true)}>👥 ลงหมวดตามผู้รับเงิน</button>}
               {canEdit && <button style={btn()} title="เงินรับ / ค่าธรรมเนียมที่ธนาคารหักเอง / โอนระหว่างบัญชี — รายการที่ไม่มีในสมุดจ่ายของ PEAK"
@@ -1707,6 +1894,9 @@
               <button style={btn()} onClick={exportSheet}>⬇️ ส่งออกไฟล์ Excel</button>
             </div>
           </div>
+
+          <input ref={fileGl} type="file" accept=".xls,.xlsx" multiple style={{ display: 'none' }}
+            onChange={e => { onGlFiles(e.target.files); e.target.value = ''; }} />
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginTop: 12 }}>
             <label style={{ fontSize: 12, color: C.mut }}>เดือน</label>
@@ -1778,31 +1968,47 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {acctSummary.list.map(g => (
+                  {acctSummary.list.map(g => {
+                    const openBad = g.openDiff != null && Math.abs(g.openDiff) > 0.02;
+                    const glBad = g.glDiff != null && Math.abs(g.glDiff) > 0.02;
+                    return (
                     <tr key={g.key}>
                       <td>
                         <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{g.label}</div>
                         <div style={{ fontSize: 10.5, color: C.faint, fontFamily: 'ui-monospace,monospace' }}>{g.no || '—'}</div>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        {canEdit
-                          ? <CfcMoneyInput value={g.manOpen} placeholder="คีย์ต้นงวด" width={132}
-                              title="ยอดคงเหลือจริงของบัญชีนี้ ณ ต้นเดือนแรกสุดที่มีข้อมูล — คีย์ครั้งเดียว เดือนถัด ๆ ไประบบคิดต่อให้เอง"
-                              onSave={v => saveOpening(g.key, v)} />
-                          : <span style={{ color: C.faint }}>{g.manOpen == null ? '—' : cfcMoney(g.manOpen)}</span>}
+                        {/* GL บอกยอดยกมามาแล้ว = ไม่ต้องคี้ย์ · ยังไม่มี GL ค่อยคีย์เอง */}
+                        {g.glOpen != null
+                          ? <React.Fragment>
+                              <div style={{ fontVariantNumeric: 'tabular-nums' }}>{cfcMoney(g.glOpen)}</div>
+                              <div style={{ fontSize: 10, color: C.pos }}>ยอดยกมาใน GL</div>
+                            </React.Fragment>
+                          : (canEdit
+                            ? <CfcMoneyInput value={g.manOpen} placeholder="คีย์ต้นงวด" width={132}
+                                title="ยอดคงเหลือจริงของบัญชีนี้ ณ ต้นเดือนแรกสุดที่มีข้อมูล — หรือนำเข้า GL แล้วระบบอ่านยอดยกมาให้เอง"
+                                onSave={v => saveOpening(g.key, v)} />
+                            : <span style={{ color: C.faint }}>{g.manOpen == null ? '—' : cfcMoney(g.manOpen)}</span>)}
+                        {openBad && <div style={{ fontSize: 10, color: C.neg }} title={'ที่คีย์ไว้ ' + cfcMoney(g.manOpen)}>
+                          ต่างจากที่คีย์ {cfcMoney(g.openDiff)}</div>}
                         {g.before !== 0 && <div style={{ fontSize: 10, color: C.faint }}>+ เดือนก่อน {cfcMoney(g.before)}</div>}
                       </td>
                       <td style={{ textAlign: 'right', color: g.inSum ? C.pos : C.faint }}>{g.inSum ? cfcMoney(g.inSum) : '—'}</td>
                       <td style={{ textAlign: 'right', color: g.outSum ? C.neg : C.faint }}>{g.outSum ? cfcMoney(g.outSum) : '—'}</td>
                       <td style={{ textAlign: 'right', fontWeight: 700, color: g.closing < 0 ? C.neg : C.ink }}>
-                        {g.manOpen == null && !g.before ? <span style={{ color: C.faint, fontWeight: 400 }}>ยังไม่คีย์ต้นงวด</span> : cfcMoney(g.closing)}
+                        {g.baseOpen == null && !g.before ? <span style={{ color: C.faint, fontWeight: 400 }}>ยังไม่มีต้นงวด</span> : cfcMoney(g.closing)}
+                        {glBad && <div style={{ fontSize: 10, color: C.neg, fontWeight: 400 }} title={'ปลายงวดตาม GL = ' + cfcMoney(g.glClosing)}>
+                          GL ว่า {cfcMoney(g.glClosing)}</div>}
                       </td>
                       <td>
                         <CfcChip tone="mute">{g.n} รายการ</CfcChip>
                         {g.uncoded > 0 && <span style={{ marginLeft: 5 }}><CfcChip tone="warn">ยังไม่ลงหมวด {g.uncoded}</CfcChip></span>}
+                        {glBad && <div style={{ marginTop: 3 }}><CfcChip tone="bad" title="ยอดที่คิดจากรายการในระบบ ไม่เท่ากับปลายงวดตามสมุดบัญชี — มีรายการขาด/เกิน">ไม่ตรง GL {cfcMoney(g.glDiff)}</CfcChip></div>}
+                        {!glBad && g.glDiff != null && <div style={{ marginTop: 3 }}><CfcChip tone="ok">ตรงกับ GL</CfcChip></div>}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   <tr style={{ fontWeight: 800, borderTop: '2px solid ' + C.line, background: C.soft }}>
                     <td>รวม {acctSummary.list.length} บัญชี</td>
                     <td style={{ textAlign: 'right' }}>{acctSummary.tot.keyed ? cfcMoney(acctSummary.tot.opening) : '—'}</td>
@@ -1817,20 +2023,33 @@
               </table>
             </div>
             <div style={{ padding: '9px 18px 12px', fontSize: 11, color: C.faint, lineHeight: 1.75 }}>
-              PEAK ไม่ส่ง “ยอดคงเหลือ” มากับรายงานสมุดรายวัน ⇒ ต้อง<strong style={{ color: C.mut }}>คีย์ยอดต้นงวดเอง</strong>ครั้งเดียว
-              (ดูจาก statement/หน้าบันทึกยอดธนาคาร ณ ต้นเดือนแรกสุดที่มีข้อมูล) เดือนถัด ๆ ไประบบยกยอดต่อให้เอง ·
-              ไม่คีย์ = ยังลงหมวด/ส่งออกงบได้ตามปกติ แค่ไม่มีบรรทัด “เงินสดต้นงวด/ปลายงวด”
+              {glBuckets.length
+                ? <React.Fragment>
+                    ยอดต้นงวดอ่านมาจาก <strong style={{ color: C.mut }}>“ยอดยกมา” ใน GL</strong> ที่นำเข้าไว้ ({glBuckets.length} ก้อน · {glOnlyN} รายการที่ไม่มีใน PV) —
+                    ปลายงวดที่คิดจากรายการในระบบต้องเท่ากับปลายงวดตาม GL ถ้าไม่เท่าแปลว่ามีรายการขาด/เกิน
+                    {canEdit && <button onClick={clearGl} style={{ marginLeft: 8, cursor: 'pointer', border: '1px solid ' + C.line, background: '#fff', color: C.mut, borderRadius: 8, padding: '1px 8px', fontSize: 10.5 }}>ล้าง GL ที่นำเข้า</button>}
+                  </React.Fragment>
+                : <React.Fragment>
+                    PEAK ไม่ส่ง “ยอดคงเหลือ” มากับรายงานสมุดรายวัน ⇒ กด <strong style={{ color: C.mut }}>📥 นำเข้า GL</strong> แล้วระบบอ่านยอดยกมาให้เอง
+                    (หรือคีย์เองก็ได้ · ดูจาก statement ณ ต้นเดือนแรกสุดที่มีข้อมูล) เดือนถัด ๆ ไประบบยกยอดต่อให้เอง ·
+                    ไม่มีต้นงวด = ยังลงหมวด/ส่งออกงบได้ตามปกติ แค่ไม่มีบรรทัด “เงินสดต้นงวด/ปลายงวด”
+                  </React.Fragment>}
             </div>
           </div>
         )}
 
         {/* แถบเตือน */}
-        {(noCash.length > 0 || stat.orphan > 0 || (!extraRows.length && stat.inSum === 0 && rows.length > 0)) && (
+        {(noCash.length > 0 || stat.orphan > 0 || pvNotInGl.length > 0 || (!glBuckets.length && !extraRows.length && stat.inSum === 0 && rows.length > 0)) && (
           <div style={Object.assign({}, card, { padding: '10px 16px', borderColor: '#f0dcb0', background: C.warnBg, fontSize: 12.5, color: C.warn, lineHeight: 1.8 })}>
             {stat.orphan > 0 && <div>⚠️ <strong>{stat.orphan} รายการ</strong> ลงหมวดที่<strong>ไม่มีในผังแล้ว</strong> ({stat.orphanNames.slice(0, 3).join(' · ')}{stat.orphanNames.length > 3 ? ' และอีก ' + (stat.orphanNames.length - 3) : ''}) — ยอดจะไม่เข้าบรรทัดไหนในงบ ให้เพิ่มหมวดกลับหรือเลือกหมวดใหม่ให้รายการเหล่านี้</div>}
+            {pvNotInGl.length > 0 && <div title={pvNotInGl.slice(0, 25).map(r => r.docNo + ' · ' + cfcThaiDate(r.iso) + ' · ' + cfcMoney(r.out || r.in) + ' · ' + r.payee).join('\n') + (pvNotInGl.length > 25 ? '\n…และอีก ' + (pvNotInGl.length - 25) + ' ใบ' : '')}>
+              ⚠️ <strong>{pvNotInGl.length} ใบสำคัญจ่าย</strong> อยู่ในช่วงวันที่ของ GL แต่<strong>ไม่มีใน GL</strong>{' '}
+              ({pvNotInGl.slice(0, 3).map(r => r.docNo).join(' · ')}{pvNotInGl.length > 3 ? ' …' : ''}) —
+              มักเป็นใบที่ถูกยกเลิก/แก้เลขใน PEAK หลังนำเข้า หรือไฟล์ GL เก่ากว่าข้อมูล PV ·
+              โหลด GL ใหม่ หรือลบใบนั้นที่หน้าใบสำคัญจ่าย (ยอดปลายงวดจะไม่ตรง GL จนกว่าจะเคลียร์) · ชี้เพื่อดูรายการ</div>}
             {noCash.length > 0 && <div>ℹ️ ตัด <strong>{noCash.length} ใบ</strong> ที่ไม่มีเงินออกจากบัญชีบริษัทออกจากตารางแล้ว (ผู้บริหารสำรองจ่ายแทน · ยอดตามใบรวม {cfcMoney(noCashSum)}) — ไม่ใช่กระแสเงินสด ถ้านับด้วยยอดในงบจะเกินจริง</div>}
-            {!extraRows.length && stat.inSum === 0 && rows.length > 0 &&
-              <div>ℹ️ เดือนนี้<strong>ยังไม่มีรายการฝั่งรับเลย</strong> — สมุด “จ่าย” ของ PEAK มีแต่ขาจ่าย ถ้าเดือนนี้มีเงินเข้า (รับชำระ / เงินกู้ / ดอกเบี้ยรับ) ให้กด <strong>➕ รายการนอก PV</strong> คีย์เพิ่ม ไม่งั้นงบจะติดลบทั้งเดือน</div>}
+            {!glBuckets.length && !extraRows.length && stat.inSum === 0 && rows.length > 0 &&
+              <div>ℹ️ เดือนนี้<strong>ยังไม่มีรายการฝั่งรับเลย</strong> — สมุด “จ่าย” ของ PEAK มีแต่ขาจ่าย · กด <strong>📥 นำเข้า GL</strong> แล้วรายการเงินเข้า (RV) จะมาครบเอง ไม่งั้นงบจะติดลบทั้งเดือน</div>}
           </div>
         )}
 
@@ -1865,6 +2084,7 @@
                         <div style={{ fontSize: 11, color: C.mut }}>
                           {r.payee || ''}
                           {r.acctLabel && <span style={{ marginLeft: 6, color: C.faint }}>· {r.acctLabel}</span>}
+                          {r.src === 'gl' && <span style={{ marginLeft: 6 }}><CfcChip tone="info" title={'มาจากรายงานบัญชีแยกประเภท — ไม่มีใบสำคัญจ่ายคู่กัน' + (r.apNo ? ' · อ้างอิง ' + r.apNo : '')}>จาก GL</CfcChip></span>}
                           {r.src === 'extra' && <span style={{ marginLeft: 6 }}><CfcChip tone="info" title="รายการที่คีย์เองในหน้านี้ (ไม่ได้มาจาก PEAK)">คีย์เอง</CfcChip></span>}
                           {r.wht > 0 && <span style={{ marginLeft: 6 }}><CfcChip tone="warn" title="ภาษีหัก ณ ที่จ่าย — ยังไม่ใช่เงินสดออก จะเป็นกระแสเงินสดตอนนำส่งสรรพากร">WHT {cfcMoney(r.wht)}</CfcChip></span>}
                         </div>
@@ -1901,7 +2121,7 @@
                 })}
                 {!shown.length && <tr><td colSpan={8} style={{ textAlign: 'center', color: C.mut, padding: 28, fontSize: 13 }}>
                   {allRows.length ? 'ไม่มีรายการตรงตัวกรอง'
-                    : 'ยังไม่มีใบสำคัญจ่ายในระบบ — ไปที่หน้า "ใบสำคัญจ่าย" แล้วอัปไฟล์ "รายงานสมุดรายวัน" ที่โหลดจาก PEAK ก่อน'}
+                    : 'ยังไม่มีข้อมูล — นำเข้า "รายงานสมุดรายวัน" ที่หน้าใบสำคัญจ่าย (ขาจ่าย) แล้วกด 📥 นำเข้า GL ที่นี่ (ขารับ + ยอดยกมา)'}
                 </td></tr>}
               </tbody>
             </table>

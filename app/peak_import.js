@@ -23,12 +23,13 @@
   'use strict';
 
   var REPORTS = {
-    'รายงานใบแจ้งหนี้':    'iv',
-    'รายงานบันทึกรายจ่าย': 'ap',
-    'รายงานสมุดรายวัน':    'pv',
+    'รายงานใบแจ้งหนี้':      'iv',
+    'รายงานบันทึกรายจ่าย':   'ap',
+    'รายงานสมุดรายวัน':      'pv',
+    'รายงานบัญชีแยกประเภท':  'gl',
   };
-  var TARGET_LABEL = { iv: 'ลูกหนี้คงค้าง', ap: 'เจ้าหนี้คงค้าง', pv: 'ใบสำคัญจ่าย' };
-  var REPORT_LABEL = { iv: 'รายงานใบแจ้งหนี้', ap: 'รายงานบันทึกรายจ่าย', pv: 'รายงานสมุดรายวัน' };
+  var TARGET_LABEL = { iv: 'ลูกหนี้คงค้าง', ap: 'เจ้าหนี้คงค้าง', pv: 'ใบสำคัญจ่าย', gl: 'งบกระทบยอดกระแสเงินสด' };
+  var REPORT_LABEL = { iv: 'รายงานใบแจ้งหนี้', ap: 'รายงานบันทึกรายจ่าย', pv: 'รายงานสมุดรายวัน', gl: 'รายงานบัญชีแยกประเภท' };
 
   function txt(v) { return String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim(); }
   function num(v) { return Number(String(v == null ? '' : v).replace(/,/g, '').trim()) || 0; }
@@ -56,17 +57,35 @@
     return m ? m[0] : '';
   }
 
+  /* หัวรายงานของ PEAK เป็นคู่ "ป้าย : " → "ค่า"
+     ⚠️ อยู่คนละที่กันในแต่ละรายงาน — ใบแจ้งหนี้/รายจ่าย/สมุดรายวันวางไว้คอลัมน์ A
+        แต่ "บัญชีแยกประเภท" วางไว้คอลัมน์ K-L (เพราะคอลัมน์ A เป็นหัวบล็อกบัญชี)
+        ⇒ ต้องกวาดทุกคอลัมน์ ห้ามยึดคอลัมน์ A อย่างเดียว
+     คืน { 'ชื่อรายงาน': '…', 'เลขที่บัญชี': '…', 'ช่วงวันที่': '…', … } */
+  function readMeta(aoa, maxRow) {
+    var meta = {};
+    for (var i = 0; i < Math.min(aoa.length, maxRow || 14); i++) {
+      var row = aoa[i] || [];
+      for (var c = 0; c < row.length; c++) {
+        var k = txt(row[c]);
+        if (!k || k.indexOf(':') < 0) continue;
+        var name = k.slice(0, k.indexOf(':')).trim();
+        // ★ ป้ายหัวรายงานเป็นข้อความไทยล้วน — กันค่าที่มี ':' อยู่ในตัวเอง (เช่น
+        //   "20260910 16:58:32") ถูกอ่านเป็นป้าย แล้วโผล่เป็นคีย์ขยะใน meta
+        if (!name || name.length > 40 || /\d/.test(name)) continue;
+        var val = k.slice(k.indexOf(':') + 1).trim() || txt(row[c + 1]);   // ค่าอยู่ในเซลล์เดียวกัน หรือช่องถัดไป
+        if (val && meta[name] == null) meta[name] = val;
+      }
+    }
+    return meta;
+  }
+
   /* ── ตรวจว่าเป็นไฟล์ PEAK ไหม + หาบรรทัดหัวตาราง ─────────────────────── */
   function detect(aoa) {
     if (!aoa || !aoa.length) return null;
     var kind = null;
-    for (var i = 0; i < Math.min(aoa.length, 12); i++) {
-      var c0 = txt((aoa[i] || [])[0]);
-      if (!/^ชื่อรายงาน/.test(c0)) continue;
-      var name = c0.split(':').slice(1).join(':').trim();
-      for (var key in REPORTS) { if (name.indexOf(key) === 0) { kind = REPORTS[key]; break; } }
-      break;
-    }
+    var name = readMeta(aoa)['ชื่อรายงาน'] || '';
+    for (var key in REPORTS) { if (name.indexOf(key) === 0) { kind = REPORTS[key]; break; } }
     if (!kind) return null;
     var headerRow = -1;
     for (var r = 0; r < Math.min(aoa.length, 30); r++) {
@@ -207,6 +226,122 @@
     return { cols: cols, rows: out, skippedBook: skippedBook };
   }
 
+  /* ══════════════════════════════════════════════════════════════════════
+   * รายงานบัญชีแยกประเภท (GL) → บรรทัดเดินบัญชีธนาคาร
+   * ----------------------------------------------------------------------
+   *  ใช้กับหน้า "งบกระทบยอดกระแสเงินสด" — เป็นแหล่งเดียวที่ให้ของ 3 อย่างที่
+   *  รายงานสมุดรายวัน (สมุด "จ่าย") ให้ไม่ได้:
+   *    1) รายการ "เงินเข้า" (RV-xxx) — สมุดจ่ายไม่มีขารับเลย
+   *    2) ยอดยกมา (ต้นงวด) ของบัญชี — PEAK ไม่ส่งมากับรายงานอื่น
+   *    3) เลขบัญชีธนาคารที่แน่นอน (อยู่ในหัวบล็อก ไม่ต้องเดาจากคำอธิบาย)
+   *
+   *  โครงไฟล์ (1 ไฟล์ = 1 บัญชี แต่รองรับหลายบล็อกไว้ด้วย):
+   *    A1                = "111301 - BSV001 (ธนาคาร - บัญชีออมทรัพย์ - ธ.ไทยพาณิชย์ … - 218-2-925534 …)"
+   *    K/L               = หัวรายงาน (ชื่อรายงาน / ช่วงวันที่ / เลขที่บัญชี …)
+   *    แถวหัวตาราง       = ลำดับที่ | เลขที่รายวัน | วันที่ออก | อ้างอิง | ผู้ติดต่อ | คำอธิบาย | เดบิต | เครดิต | คงเหลือ
+   *    แถวแรกของข้อมูล   = "ยอดยกมา" (เดบิต − เครดิต = ยอดต้นงวด)
+   *    แถวสุดท้าย        = "รวม"
+   *  ★ เดบิต = เงินเข้าบัญชี · เครดิต = เงินออกจากบัญชี (ตรงข้ามกับมุมมองใบจ่าย)
+   *  ⚠️ คอลัมน์ "คงเหลือ" ว่างทุกแถวในไฟล์จริง — อย่าไปพึ่ง ให้คิดจากยอดยกมาเอง
+   * ══════════════════════════════════════════════════════════════════════ */
+  var GL_BANK_PREFIX = /^1113/;      // ผังบัญชี PEAK: 1113xx = เงินฝากธนาคาร (ชุดเดียวกับ buildPV)
+
+  // หัวบล็อกบัญชี: "111301 - BSV001 (…)"  → { code, alias, desc }
+  function glAccountHead(v) {
+    var m = txt(v).match(/^(\d{4,8})\s*-\s*([^\s(]+)\s*\((.*)\)\s*$/);
+    return m ? { code: m[1], alias: m[2], desc: m[3] } : null;
+  }
+
+  /* คำอธิบายของ GL ซ้ำหัวบัญชี+เลขบัญชี+ชื่อบริษัททุกแถว → ตัดทิ้งให้เหลือเนื้อจริง
+     (ปกติจะเหลือชื่อคู่ค้า ซึ่งตรงกับคอลัมน์ "ผู้ติดต่อ" — ถือว่าโอเค ไม่ไปเดาเพิ่ม) */
+  function glMemo(desc, ctx) {
+    var parts = txt(desc).split(/\s+-\s+/).map(txt).filter(Boolean);
+    var keep = parts.filter(function (p, i) {
+      if (p === 'ธนาคาร' || (i <= 2 && /^บัญชี/.test(p))) return false;   // "ธนาคาร - บัญชีออมทรัพย์"
+      if (p === ctx.alias || p === ctx.company) return false;
+      if (ctx.acctNo && p.indexOf(ctx.acctNo) >= 0) return false;         // เลขบัญชี (บางแถวมีชื่อบริษัทต่อท้าย)
+      if (/^#/.test(p)) return false;                                     // "#EXP-xxxxx" ซ้ำกับคอลัมน์อ้างอิง
+      return true;
+    });
+    return keep.join(' · ');
+  }
+
+  // "C00266 - กองทุนสํารองเลี้ยงชีพไทยพาณิชย์" → "กองทุนสํารองเลี้ยงชีพไทยพาณิชย์"
+  function glContact(v) { return txt(v).replace(/^[A-Z]\d{3,}\s*-\s*/, ''); }
+
+  /* คืน { accounts:[…], skipped:[…], error }
+     accounts[i] = { code, alias, bankName, acctNo, company, from, to, opening, lines:[…] }
+     lines[i]    = { seq, docNo, iso, ref, payee, memo, desc, in, out } */
+  function parseGL(aoa) {
+    var out = { accounts: [], skipped: [], error: '', meta: {} };
+    if (!aoa || !aoa.length) { out.error = 'ไฟล์ว่าง'; return out; }
+    out.meta = readMeta(aoa);
+    var company = out.meta['ชื่อกิจการ'] || '';
+    var period = (out.meta['ช่วงวันที่'] || '').split('-');
+    var from = toISO(txt(period[0])), to = toISO(txt(period[1]));
+
+    // จุดเริ่มของแต่ละบล็อกบัญชี (ไฟล์จริงมีบล็อกเดียว แต่รองรับหลายบล็อกไว้ก่อน)
+    var heads = [];
+    for (var r = 0; r < aoa.length; r++) {
+      var h = glAccountHead((aoa[r] || [])[0]);
+      if (h) heads.push({ row: r, head: h });
+    }
+    if (!heads.length) { out.error = 'ไม่พบหัวบล็อกบัญชี (เช่น "111301 - BSV001 (…)") ที่คอลัมน์แรก'; return out; }
+
+    heads.forEach(function (blk, bi) {
+      var end = bi + 1 < heads.length ? heads[bi + 1].row : aoa.length;
+      var hr = -1;
+      for (var r = blk.row; r < end && r < blk.row + 8; r++) {
+        if (txt((aoa[r] || [])[0]) === 'ลำดับที่') { hr = r; break; }
+      }
+      if (hr < 0) return;
+      var idx = colIndex(aoa, hr);
+      var g = function (row, name) { return idx[name] == null ? '' : row[idx[name]]; };
+      var acctNo = pickBankAc(blk.head.desc);
+      // ชื่อธนาคารในหัวบล็อก: "… - ธ.ไทยพาณิชย์ ออมทรัพย์ - 218-2-925534 …"
+      var bankName = '';
+      blk.head.desc.split(/\s+-\s+/).forEach(function (p) { if (!bankName && /^(ธ\.|ธนาคาร\s)/.test(txt(p))) bankName = txt(p); });
+      var acc = { code: blk.head.code, alias: blk.head.alias, desc: blk.head.desc,
+                  bankName: bankName, acctNo: acctNo, company: company,
+                  from: from, to: to, opening: null, lines: [] };
+
+      // ★ รับเฉพาะบัญชีเงินฝากธนาคาร — GL ของบัญชีอื่น (ลูกหนี้/ค่าใช้จ่าย) ไม่ใช่กระแสเงินสด
+      //   เอาเข้ามาเมื่อไหร่ยอดในงบจะกลายเป็นตัวเลขคนละเรื่องแบบเงียบ ๆ
+      if (!GL_BANK_PREFIX.test(acc.code)) { out.skipped.push(acc); return; }
+
+      for (var i = hr + 1; i < end; i++) {
+        var row = aoa[i] || [];
+        var descRaw = txt(g(row, 'คำอธิบาย'));
+        var dr = num(g(row, 'เดบิต')), cr = num(g(row, 'เครดิต'));
+        if (/^ยอดยกมา/.test(descRaw)) { acc.opening = dr - cr; continue; }
+        if (/^(รวม|ยอดยกไป)/.test(descRaw)) break;
+        var iso = toISO(g(row, 'วันที่ออก'));
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) continue;
+        if (!dr && !cr) continue;
+        var payee = glContact(g(row, 'ผู้ติดต่อ'));
+        acc.lines.push({
+          seq: acc.lines.length,
+          docNo: txt(g(row, 'เลขที่รายวัน')),
+          iso: iso,
+          ref: txt(g(row, 'อ้างอิง')),
+          payee: payee,
+          memo: glMemo(descRaw, acc) || payee,
+          desc: descRaw,
+          in: dr, out: cr,
+        });
+      }
+      if (acc.lines.length || acc.opening != null) out.accounts.push(acc);
+    });
+
+    if (!out.accounts.length) {
+      out.error = out.skipped.length
+        ? 'ไฟล์นี้เป็นบัญชีแยกประเภทของ "' + out.skipped.map(function (a) { return a.code + ' ' + a.alias; }).join(', ')
+          + '" ซึ่งไม่ใช่บัญชีเงินฝากธนาคาร (ต้องเป็นรหัส 1113xx) — หน้านี้รับเฉพาะ GL ของบัญชีธนาคาร'
+        : 'อ่านหัวตารางได้ แต่ไม่พบแถวรายการเดินบัญชี';
+    }
+    return out;
+  }
+
   var BUILDERS = { iv: buildIV, ap: buildAP, pv: buildPV };
 
   function toTSV(cols, rows) {
@@ -234,6 +369,10 @@
       return { ok: false, message: 'ไฟล์นี้เป็น "' + REPORT_LABEL[det.kind] + '" ของ PEAK ' +
                'ซึ่งต้องนำเข้าที่หน้า ' + TARGET_LABEL[det.kind] + ' — หน้านี้รับ "' + REPORT_LABEL[target] + '"' };
     }
+    // GL ไม่มี builder แบบ TSV (ไม่ได้ป้อน DataCrudPage) — อ่านผ่าน PeakImport.readGL แทน
+    if (!BUILDERS[target]) {
+      return { ok: false, message: 'รายงาน "' + REPORT_LABEL[target] + '" ไม่ได้นำเข้าด้วยวิธีนี้ — ใช้ปุ่มนำเข้าที่หน้า ' + TARGET_LABEL[target] };
+    }
     var built = BUILDERS[target](aoa, det.headerRow);
     if (!built.rows.length) return { ok: false, message: 'อ่านไฟล์ PEAK ได้ แต่ไม่พบแถวข้อมูลที่ใช้ได้' };
     var note = 'อ่านไฟล์ PEAK (' + REPORT_LABEL[target] + ') ได้ ' + built.rows.length + ' รายการ';
@@ -242,7 +381,31 @@
     return { ok: true, tsv: toTSV(built.cols, built.rows), count: built.rows.length, note: note };
   }
 
-  root.PeakImport = { detect: detect, sheetToTSV: sheetToTSV, toISO: toISO };
+  /* ── readGL(ws) — อ่าน sheet "รายงานบัญชีแยกประเภท" ให้หน้า #cf_coding ────
+   *    null                                   → ไม่ใช่ไฟล์ PEAK
+   *    { ok:false, message }                  → เป็น PEAK แต่คนละรายงาน / อ่านไม่ได้
+   *    { ok:true, accounts, skipped, meta }   → อ่านได้                          */
+  function readGL(ws) {
+    if (!root.XLSX || !ws) return null;
+    var aoa;
+    try { aoa = root.XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }); }
+    catch (_) { return null; }
+    var det = detect(aoa);
+    if (!det) {
+      // GL ไม่มีแถว "ลำดับที่" ในบางรุ่น → detect คืน null ทั้งที่เป็น GL จริง จึงเช็คหัวรายงานซ้ำ
+      var name = readMeta(aoa)['ชื่อรายงาน'] || '';
+      if (name.indexOf('รายงานบัญชีแยกประเภท') !== 0) return null;
+    } else if (det.kind !== 'gl') {
+      return { ok: false, message: 'ไฟล์นี้เป็น "' + REPORT_LABEL[det.kind] + '" ของ PEAK ' +
+               'ซึ่งต้องนำเข้าที่หน้า ' + TARGET_LABEL[det.kind] + ' — หน้านี้รับ "' + REPORT_LABEL.gl + '"' };
+    }
+    var p = parseGL(aoa);
+    if (p.error) return { ok: false, message: p.error };
+    return { ok: true, accounts: p.accounts, skipped: p.skipped, meta: p.meta };
+  }
+
+  root.PeakImport = { detect: detect, sheetToTSV: sheetToTSV, toISO: toISO,
+                      readGL: readGL, parseGL: parseGL, readMeta: readMeta };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 if (typeof module !== 'undefined' && module.exports) module.exports = (typeof window !== 'undefined' ? window : globalThis).PeakImport;
