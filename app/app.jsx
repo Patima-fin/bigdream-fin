@@ -45,6 +45,7 @@ const PAGE_GROUPS = [
   { key: 'reports', label: 'รายงาน / วิเคราะห์', items: [
     ['bank_diary',        'Bank Daily',           'bank'],
     ['receipts',          'ประวัติรับเงิน',        'receivables'],
+    ['cf_coding',         'งบกระทบยอดกระแสเงินสด', 'chart'],
   ] },
   { key: 'manage', label: 'จัดการข้อมูล', items: [
     ['invoices',      'ลูกหนี้คงค้าง',           'invoice'],
@@ -644,6 +645,7 @@ function App() {
     cashflow_present: { label: 'Executive Cash Flow', title: 'Executive Cash Flow Dashboard', icon: 'chart' },
     bank_diary:    { label: 'Bank Daily',            title: 'Bank Daily',       icon: 'bank' },
     receipts:      { label: 'ประวัติรับเงิน',         title: 'Receipts History', icon: 'receivables' },
+    cf_coding:     { label: 'งบกระทบยอดกระแสเงินสด', title: 'Cash Flow Reconciliation', icon: 'chart' },
     invoices:      { label: 'ลูกหนี้คงค้าง',          title: 'Invoices',         icon: 'invoice' },
     data_pv:       { label: 'ใบสำคัญจ่าย',            title: 'Payment Vouchers', icon: 'money' },
     data_payable:  { label: 'เจ้าหนี้คงค้าง',          title: 'เจ้าหนี้คงค้าง · AP Outstanding', icon: 'invoice' },
@@ -658,6 +660,7 @@ function App() {
     case 'cashflow_present': page = <CashFlowPresentPage data={data} setData={setData} toast={pushToast} />; break;
     case 'bank_diary':     page = <BankDiaryPage data={data} setData={setData} toast={pushToast} />; break;
     case 'receipts':       page = <ReceiptsPage data={data} />; break;
+    case 'cf_coding':      page = <CfCodingPage data={data} setData={setData} toast={pushToast} />; break;
     case 'invoices':       page = <InvoicesPage data={data} setData={setData} toast={pushToast} />; break;
     case 'data_pv':        page = <DataPVPage data={data} setData={setData} toast={pushToast} />; break;
     case 'data_payable':   page = <DataPayablePage data={data} setData={setData} toast={pushToast} />; break;

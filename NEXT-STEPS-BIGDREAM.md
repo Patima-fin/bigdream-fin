@@ -54,6 +54,10 @@
 - project `bigdream-fin` · ref **`dkdxyuqmkujnktemhwxf`** · org `Patima-fin` · region Asia-Pacific
 - รัน SQL ครบแล้ว: `schema.sql` → `pnl-budget.sql` → `bankrecon-express.sql` → `cashflow-present.sql`
   (ครบ 29 ตาราง — ตรวจแล้วอ่าน/เขียนได้จริงทุกตัว)
+- ⏳ **ค้างรัน `cf-coding.sql`** (เพิ่ม 2026-09-09 พร้อมหน้า "งบกระทบยอดกระแสเงินสด" → ตาราง `cfCoding`)
+  รันตามหลัง `schema.sql` เมื่อไหร่ก็ได้ · **ยังไม่รันก็เปิดหน้าได้** แต่ผัง/กฎ/รายการที่คีย์
+  จะเก็บใน localStorage ของเครื่องใครเครื่องมัน (หัวหน้าจะขึ้นว่า "ข้อมูลในเครื่อง" แทน "ข้อมูลส่วนกลาง")
+  ⇒ รันก่อนเริ่มลงหมวดจริง ไม่งั้นงานที่ลงไว้จะไม่แชร์ให้ทีม
 - รัน `supabase/rls-off-bootstrap.sql` แล้ว (ดูหัวข้อ "กับดัก RLS" ด้านล่าง)
 - **ยังไม่รัน** `supabase/rls-phase4.sql` — ถูกต้องแล้ว เก็บไว้ STEP 5
 

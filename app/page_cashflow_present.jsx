@@ -59,7 +59,15 @@
     if (v == null || v === '') return '';
     if (typeof v === 'number' && isFinite(v) && v > 1000) {
       const dt = new Date(Math.round((v - 25569) * 86400 * 1000));
-      if (!isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+      /* ⚠️ ชีต "รวมทุกบัญชี" ที่ทำมือเก็บวันที่เป็น Excel serial ของปี พ.ศ. (244354 = 5 ม.ค. 2569)
+         → serial นั้นแปลงตรง ๆ ได้ปี ค.ศ. 2569 ⇒ ต้องผ่านกฎรวม "ปี > 2400 = พ.ศ. → ลบ 543"
+         เหมือน path อื่น ไม่ใช่ return ทางลัดตั้งแต่ตรงนี้ (เดิม iso ที่เก็บไว้เป็น 2569-xx
+         ทั้งชุด → เดือนไม่ตรงกับข้อมูลที่ดันมาใหม่ ป้ายเดือนออกมาเป็น "612") */
+      if (!isNaN(dt.getTime())) {
+        const yy = dt.getUTCFullYear();
+        if (yy <= 2400) return dt.toISOString().slice(0, 10);
+        return String(yy - 543).padStart(4, '0') + dt.toISOString().slice(4, 10);
+      }
     }
     let s = String(v).trim();
     const era = cfpEraHint || 'auto';
@@ -271,7 +279,10 @@
       const balance = cfpNum(at(cells, COL.balance)), flow = deposit - withdraw;
       const category = String(at(cells, COL.category) || '').trim(), activity = String(at(cells, COL.activity) || '').trim();
       // รูปแบบ (B): จำแถวเก่าสุดต่อบัญชี เพื่อคำนวณยอดต้นงวด (ไม่มี "ยอดยกมา")
-      if (hasAcctCol && COL.balance >= 0) { const p = openTrack[acct]; if (!p || iso < p.iso) openTrack[acct] = { iso, bal: balance, flow }; }
+      //  ⚠️ ต้องเป็นแถวที่ "มี" ยอดคงเหลือจริงเท่านั้น — ช่องว่างไม่ใช่ยอด 0 (ชีตที่ดันมาจาก
+      //     หน้างบกระทบยอดมีแถวบิลรายใบที่ไม่มีคอลัมน์นี้ ⇒ ต้นงวดจะกลายเป็นยอดจ่ายของบิลใบแรก)
+      const balBlank = (at(cells, COL.balance) === '' || at(cells, COL.balance) == null);
+      if (hasAcctCol && COL.balance >= 0 && !balBlank) { const p = openTrack[acct]; if (!p || iso < p.iso) openTrack[acct] = { iso, bal: balance, flow }; }
       txns.push({
         account: acct, iso, month: cfpMonth(iso),
         docNo: String(at(cells, COL.doc) || '').trim(), note: String(at(cells, COL.note) || '').trim(),
@@ -303,21 +314,42 @@
       return out;
     }
     const nMonths = out.monthLabels.length; let curAct = null;
+    /* ★ AOA ที่หน้า #cf_coding สร้างเอง แนบ `kinds` มาให้ (ชนิดของแต่ละแถวตอน push แถว)
+         → ใช้ของจริง ไม่ต้องเดา. ไฟล์ที่คนอัปเองไม่มี kinds → ตกไปใช้ "ย่อหน้า" */
+    const KIND2TYPE = { sec: 'section', grp: 'group', item: 'leaf', gsum: 'subtotal',
+      anet: 'net', net: 'grand', cash: 'grand', nsec: 'group', nitem: 'leaf', nbad: 'leaf', nplug: 'leaf' };
+    const kinds = (aoa && aoa.kinds) || null;
+    const actOf = l => /ดำเนินงาน/.test(l) ? 'op' : /ลงทุน/.test(l) ? 'inv' : /จัดหา/.test(l) ? 'fin' : null;
     for (let i = headerIdx + 1; i < aoa.length; i++) {
-      const row = aoa[i] || []; const label = String(row[0] || '').trim(); if (!label) continue;
+      const row = aoa[i] || []; const raw = row[0] == null ? '' : String(row[0]);
+      const label = raw.trim(); if (!label) continue;
       const vals = []; let hasVal = false;
       for (let k = 1; k <= nMonths; k++) { const n = cfpNum(row[k]); vals.push(n); if (n !== 0) hasVal = true; }
       const total = cfpNum(row[nMonths + 1]); if (total !== 0) hasVal = true;
-      let type = 'leaf', actKey = curAct;
-      if (/^กระแสเงินสดจากกิจกรรม/.test(label)) { type = 'section'; actKey = /ดำเนินงาน/.test(label) ? 'op' : /ลงทุน/.test(label) ? 'inv' : /จัดหา/.test(label) ? 'fin' : null; curAct = actKey; }
-      else if (/^กระแสเงินสดสุทธิจากกิจกรรม/.test(label)) { type = 'net'; const k = /ดำเนินงาน/.test(label) ? 'op' : /ลงทุน/.test(label) ? 'inv' : /จัดหา/.test(label) ? 'fin' : null; if (k) out.actNet[k] = total; }
-      else if (/เพิ่มขึ้น.*ลดลง.*สุทธิ|สุทธิ.*เพิ่มขึ้น/.test(label)) { type = 'grand'; out.net = total; }
-      else if (/เงินสด.*ต้นงวด/.test(label)) { type = 'grand'; out.opening = total; }
-      else if (/เงินสด.*ปลายงวด/.test(label)) { type = 'grand'; out.ending = total; }
+      // ── ค่าสรุป: อ่านจาก "ชื่อแถว" อย่างเดียว ไม่เกี่ยวกับว่าแถวนั้นถูกจัดเป็นชนิดไหน ──
+      const isSec = /^กระแสเงินสดจากกิจกรรม/.test(label), isActNet = /^กระแสเงินสดสุทธิจากกิจกรรม/.test(label);
+      if (isSec) curAct = actOf(label);
+      if (isActNet) { const k = actOf(label); if (k) out.actNet[k] = total; }
+      if (/เพิ่มขึ้น.*ลดลง.*สุทธิ|สุทธิ.*เพิ่มขึ้น/.test(label)) out.net = total;
+      else if (/เงินสด.*ต้นงวด/.test(label)) out.opening = total;
+      else if (/เงินสด.*ปลายงวด/.test(label)) out.ending = total;
+      // ── ชนิดแถว ──
+      let type;
+      const kind = kinds ? kinds[i] : null;
+      if (kind && KIND2TYPE[kind]) type = KIND2TYPE[kind];
+      else if (isSec) type = 'section';
+      else if (isActNet) type = 'net';
+      else if (/เพิ่มขึ้น.*ลดลง.*สุทธิ|สุทธิ.*เพิ่มขึ้น|เงินสด.*(ต้นงวด|ปลายงวด)/.test(label)) type = 'grand';
       else if (/^รวม/.test(label)) type = 'subtotal';
-      else if (!hasVal) type = 'group';
-      else type = 'leaf';
-      out.rows.push({ label, vals, total, type, actKey });
+      else {
+        /* ⚠️ ห้ามเดาว่า "ยอดเป็น 0 ทุกเดือน = หัวข้อกลุ่ม" — รายการย่อยที่ยังไม่มียอด
+           (เช่น "ชำระคืนเงินกู้ - ZICO", "เจาะจงไม่ได้") จะกลายเป็นหัวข้อสีเขียวกางได้
+           และ **ตัวเลขทั้งแถวถูกซ่อน** (`emptyVals`). ใช้ "ย่อหน้า" แทน — ทั้งไฟล์ CASH FLOW
+           จริงและ AOA ที่เราสร้าง ย่อหน้ารายการย่อย 6 ช่อง / หัวข้อกลุ่ม 1-5 ช่อง */
+        const ind = raw.length - raw.replace(/^\s+/, '').length;
+        type = ind >= 6 ? 'leaf' : (ind > 0 ? 'group' : (hasVal ? 'leaf' : 'group'));
+      }
+      out.rows.push({ label, vals, total, type, actKey: curAct });
     }
     return out;
   }
@@ -384,9 +416,29 @@
     return { ok: false, gap, miss, extra, missSum, extraSum, explained, rest: gap - explained };
   }
 
+  /* ⚠️ ข้อมูลเก่าที่อัปไว้ก่อนแก้บั๊ก BE serial มี `iso` เป็นปี พ.ศ. ("2569-05-05")
+     ⇒ เดือนไม่ตรงกับข้อมูลใหม่ (2026-05), เรียงลำดับผิด, ป้ายเดือนเพี้ยน.
+     ยุบเป็น ค.ศ. ทุกทางที่อ่านเข้ามา — ทั้งตอนสร้าง model และตอน merge ที่หน้า #cf_coding */
+  function cfpFixEraIso(iso) {
+    const s = String(iso || '');
+    const y = +s.slice(0, 4);
+    return (y > 2400) ? String(y - 543) + s.slice(4) : s;
+  }
+  function cfpFixEraTxns(txns) {
+    let n = 0;
+    const out = (txns || []).map(t => {
+      const iso = cfpFixEraIso(t.iso);
+      if (iso === t.iso) return t;
+      n++;
+      return Object.assign({}, t, { iso, month: cfpMonth(iso) });
+    });
+    if (n) console.warn('[cfp] แปลงวันที่ พ.ศ. → ค.ศ. ' + n + ' รายการ (ข้อมูลเก่าก่อนแก้บั๊ก)');
+    return out;
+  }
+
   /* ---------- build model ---------- */
   function cfpBuildModel(stm, summary) {
-    const txns = stm.txns || [];
+    const txns = cfpFixEraTxns(stm.txns);
     const monthsSet = {};
     txns.forEach(t => { if (t.month && t.actKey !== 'transfer' && t.actKey !== 'other') monthsSet[t.month] = true; });
     const months = Object.keys(monthsSet).map(Number).sort((a, b) => a - b);
@@ -1551,4 +1603,8 @@
   }
 
   window.CashFlowPresentPage = CashFlowPresentPage;
+  /* ★ เปิดตัวอ่าน + ค่าคงที่ให้หน้า #cf_coding เรียกข้ามไฟล์ได้ — หน้านั้นสร้าง AOA
+     รูปเดียวกับไฟล์ที่คนอัปมือ แล้วส่งผ่านตัวอ่านชุดนี้ ⇒ ข้อมูลที่ลงเอยเหมือนกัน
+     เป๊ะกับการ "ส่งออกแล้วอัปกลับ" โดยไม่ต้องเขียนตัวแปลงซ้ำ (กันสูตรสองชุดเพี้ยนกัน) */
+  Object.assign(window, { cfpParseStm, cfpParseSummary, cfpAccountLabel, cfpFixEraTxns, CFP_TABLE, CFP_ROW_ID, cfpCurrentUser });
 })();

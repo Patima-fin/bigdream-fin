@@ -77,7 +77,7 @@
 
   // ตาราง analytics ที่อ่าน/เขียนแบบ on-demand (ไม่ preload, ไม่อยู่ใน realtime/diff loop) —
   // หน้า P&L/Budget เรียกผ่าน fetchSheetRows (อ่าน) + WTPData.writeTable (นำเข้า)
-  var SHEET_TABLES = ['pnlBase', 'budgetHo', 'cashflowPresent'];
+  var SHEET_TABLES = ['pnlBase', 'budgetHo', 'cashflowPresent', 'cfCoding'];
   var SHEET_TABLE_SET = {}; SHEET_TABLES.forEach(function (t) { SHEET_TABLE_SET[t] = true; });
 
   // entity ที่ data.js ตัดออกจาก localStorage (กัน quota) → load() ไม่มี → ต้องใช้ React state / cachedData
@@ -485,6 +485,30 @@
         subscribers.forEach(function (cb) { try { cb(cachedData); } catch (_) {} });
       }
     }, function (err) { console.warn('[WTP Supabase] forceDeleteRows ล้มเหลว:', err && err.message); });
+  };
+
+  /* ── upsertSheetRows: เขียน "เฉพาะแถวที่ส่งมา" ───────────────────────────
+   *   ต่างจาก writeTable ตรงที่ ไม่ selectAll ทั้งตารางก่อน และไม่ลบแถวที่ไม่ได้ส่งมา
+   *   ⚠️ ใช้กับตารางก้อนใหญ่ที่แก้ทีละส่วน (cfCoding: 1 เดือน 1 บัญชี = 1 แถว ~58KB —
+   *      ยืนยันหมวด 1 รายการแล้วเรียก writeTable = ดาวน์โหลด+อัปโหลดบรรทัดดิบทุกเดือนซ้ำทั้งตาราง
+   *      หน้าจอค้างทุกคลิก). ลบแถวใช้ forceDeleteRows แยกต่างหาก.
+   *   คืน Promise<{ok,count}>. */
+  WTPData.upsertSheetRows = function (entity, rows, idOf) {
+    if (!_hasValidSession()) return Promise.reject(new Error('ต้องเข้าสู่ระบบก่อน'));
+    var recs = (rows || []).map(function (r) {
+      var id = idOf ? idOf(r) : (r && r.id);
+      return { id: String(id == null ? '' : id), data: r };
+    }).filter(function (x) { return x.id && x.id !== 'undefined'; });
+    if (!recs.length) return Promise.resolve({ ok: true, count: 0 });
+    return sb.from(entity).upsert(recs).then(chk).then(function () {
+      try {
+        var m = _currentMeta();
+        sb.from('audit_log').insert([{ username: m.user, display_name: m.displayName, role: m.role,
+          action: 'upsertSheetRows', entity: entity, summary: entity + ': เขียน ' + recs.length + ' แถว' }])
+          .then(function () {}, function () {});
+      } catch (_) {}
+      return { ok: true, count: recs.length };
+    });
   };
 
   /* ── writeTable: เขียนทั้งตาราง (full sync) สำหรับ analytics on-demand (P&L/Budget นำเข้า) ──

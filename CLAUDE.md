@@ -2,7 +2,7 @@
 
 ## เว็บนี้คืออะไร
 
-Dashboard การเงินของ BIGDREAM — **fork ของ `WebAPP - BIO` (BIOAXEL) ที่ตัดเหลือ 10 หน้า**
+Dashboard การเงินของ BIGDREAM — **fork ของ `WebAPP - BIO` (BIOAXEL) ที่ตัดเหลือ 11 หน้า**
 (BIO เองก็ fork มาจาก Water POG อีกที) สร้างเมื่อ 2026-09-03
 
 **แยกขาดจาก BIO / Water POG ทุกชั้น:** คนละโฟลเดอร์ · คนละ repo · คนละ Supabase project ·
@@ -30,13 +30,14 @@ Supabase (Postgres + Realtime). ตั้งค่าที่ `app/config.js`
 data layer: `data.js` (shape + cache) → `data_sync.js` / `data_supabase.js` (sync)
 เข้าถึงผ่าน global `WTPData.*` · สิทธิ์ผ่าน `WTPAuth.*` (ประกาศใน `app.jsx`)
 
-## 10 หน้า (route → component → ไฟล์)
+## 11 หน้า (route → component → ไฟล์)
 
 | route | เมนู | component | ไฟล์ |
 |---|---|---|---|
 | `cashflow_present` | Executive Cash Flow | `CashFlowPresentPage` | `page_cashflow_present.jsx` |
 | `bank_diary` | Bank Daily | `BankDiaryPage` | `page_bank_diary.jsx` |
 | `receipts` | ประวัติรับเงิน | `ReceiptsPage` | `page_receipts.jsx` |
+| `cf_coding` | งบกระทบยอดกระแสเงินสด | `CfCodingPage` | `page_cf_coding.jsx` |
 | `invoices` | ลูกหนี้คงค้าง | `InvoicesPage` | `page_invoices.jsx` |
 | `data_pv` | ใบสำคัญจ่าย | `DataPVPage` | `page_data_extras.jsx` |
 | `data_payable` | เจ้าหนี้คงค้าง | `DataPayablePage` | `page_data_extras.jsx` |
@@ -97,6 +98,37 @@ BIGDREAM ใช้โปรแกรมบัญชี **PEAK** (BIO ใช้ *
 
 **เพิ่มโปรแกรมบัญชีใหม่ในอนาคต:** เขียน builder เพิ่มใน `peak_import.js` แล้วเติมใน `REPORTS`
 
+## งบกระทบยอดกระแสเงินสด — `app/page_cf_coding.jsx`
+
+โต๊ะลงหมวดให้ทุกรายการ → ได้งบกระแสเงินสด (ส่งออก Excel 3 ชีต หรือดันขึ้น `cashflow_present` ตรง ๆ)
+
+**ต่างจาก BIO อย่างไร** — BIO ใช้ EXPRESS จึงต้องนำเข้าไฟล์งบกระทบยอดธนาคารแล้วไล่จับคู่
+บรรทัดธนาคาร ↔ ใบสำคัญจ่ายด้วยเลขเช็ค (โค้ดจับคู่ ~700 บรรทัด: `cfcParseBankSheet` /
+`cfcParseSettleReport` / `cfcMatchPv` …) · BDH ใช้ PEAK ซึ่ง `peak_import.js` ยุบ double-entry
+เป็น **1 ใบจ่าย = 1 แถว** ให้แล้ว และรายการทั้งหมด**ตรงกับหน้าใบสำคัญจ่ายเป๊ะ**
+⇒ หน้านี้ **ไม่มีตัวนำเข้าไฟล์ของตัวเอง** อ่านจาก `data.pvVouchers` ตรง ๆ (นำเข้าที่หน้า PV ที่เดียว)
+
+**เก็บอะไรไว้ที่ไหน** — ตาราง `cfCoding` (∈ `SHEET_TABLES` ของ `data_supabase.js`) · cache `bdh-cfcode-v1`
+| id | เก็บ |
+|---|---|
+| `master` | ผังหมวด `{items:[{name,act,group,flow?}]}` — `act` = op/inv/fin/transfer |
+| `rules` | กฎที่เรียนรู้ `{map:{ "doc:…"\|"vendor:…"\|"memo:…"\|"text:…" : {cat,n,by,at} }}` |
+| `extra` | รายการนอก PV ที่คีย์เอง (ขารับ / ค่าธรรมเนียมที่ธนาคารหักเอง / โอนระหว่างบัญชี) |
+| `manual` | `{opening:{ "<เลขบัญชี>": number }}` — ยอดเงินสดต้นงวดรายบัญชี |
+
+**ข้อควรระวัง**
+- **ไม่มีหมวดตั้งต้นจริง** — `CFC_MASTER_SEED` เป็นผังกลางแบบมาตรฐาน (74 หมวด) ไม่ใช่ผังของบริษัท
+  หน้าจอขึ้นแถบเตือนจนกว่าจะแก้ครั้งแรก · แก้ทีละหมวดหรือส่งออก/นำเข้าเป็นชุด Excel 4 คอลัมน์ก็ได้
+- **ใบที่ `Net_Amount` = 0** (สำรองจ่ายแทน) ถูกตัดออกจากตารางตั้งแต่ต้น — ไม่ใช่กระแสเงินสดของบริษัท
+  นับด้วยเมื่อไหร่ยอดในงบเกินจริงทันที (จำนวนใบที่ตัดโชว์ไว้ที่แถบเตือน)
+- **PEAK สมุด "จ่าย" ไม่มีขารับ** — ถ้าไม่คีย์ "รายการนอก PV" งบจะติดลบทั้งเดือน (มีแถบเตือนบอก)
+- **ไม่มียอดคงเหลือรายบรรทัด** ⇒ ชีต "รายละเอียดทุกรายการ" จง**ใจไม่มีคอลัมน์ "ยอดคงเหลือ"**
+  (ถ้าใส่คอลัมน์ว่างไว้ `cfpParseStm` จะคิดยอดต้นงวด = 0 − กระแสแถวแรก แบบเงียบสนิท)
+  ยอดต้นงวดมาจากที่คีย์เองในตาราง "สรุปรายบัญชี" เท่านั้น
+- `page_cashflow_present.jsx` ต้อง `Object.assign(window, { cfpParseStm, cfpParseSummary, CFP_TABLE, … })`
+  ไม่งั้นปุ่ม "ส่งขึ้นหน้า Cash Flow" ตายเงียบ · และ `index.html` ต้องโหลด `page_cf_coding.jsx` **หลัง** ไฟล์นั้น
+- ต้องรัน `supabase/cf-coding.sql` ครั้งเดียว ไม่งั้น degrade เป็น local (หัวหน้าขึ้น "ข้อมูลในเครื่อง")
+
 ## แบรนด์ · โลโก้ · สีธีม
 
 **ชื่อบริษัท** — `บริษัท บิ๊ก ดรีม โฮลดิง จำกัด` · `BIG DREAM HOLDINGS CO., LTD.`
@@ -133,3 +165,29 @@ BIGDREAM ใช้โปรแกรมบัญชี **PEAK** (BIO ใช้ *
 - **ชื่อบริษัท** อยู่ 2 จุด: `data.js → companyName` และ `page_bank_diary.jsx → BD_COMPANY_NAME`
 - **ตารางที่ไม่ได้ใช้ก็ต้องสร้าง** — `pnlBase` `budgetHo` `bankReconBook` `bankReconMatch` ยังอยู่ใน
   รายการ sync (`data.js` / `data_supabase.js`) ถึงหน้าจะถูกตัดไปแล้ว ⇒ ต้องรัน SQL ครบทุกไฟล์
+- **เพิ่มตารางใหม่ = แก้ 3 ที่** — `supabase/<ไฟล์>.sql` (สร้าง) · `data_supabase.js → SHEET_TABLES`
+  หรือ `CRUD_ENTITIES` (ให้แอปอ่าน/เขียนได้) · `supabase/rls-phase4.sql` ทั้ง **array `ents`
+  และ ROLLBACK block ในคอมเมนต์หัวไฟล์** — ตกหล่นจาก `ents` = ตารางค้างเปิดโล่งเงียบ ๆ
+  เพราะ `rls-off-bootstrap.sql` ปิด RLS แบบวนลูปทุกตาราง
+
+## 2026-09-10 — port ตัวแก้ทั้งชุดจาก BIO (งบกระทบยอด → Executive Cash Flow)
+BIO เจอบั๊กชุดใหญ่ในเส้นทาง "ดันข้อมูลจากงบกระทบยอดขึ้นหน้า Cash Flow" แล้วแก้ไปทั้งหมด
+(รายละเอียดเต็มอยู่ใน `WebAPP - BIO/docs/CHANGELOG.md` 2026-09-09 / 2026-09-10)
+BDH ใช้โค้ดชุดเดียวกันจึงมีบั๊กเหมือนกัน — port มาแล้วดังนี้ (ปรับให้เข้ากับ PEAK ที่ไม่มียอดคงเหลือ):
+- **`cfpToISO`** สาขา "ตัวเลข" ผ่านกฎ "ปี > 2400 = พ.ศ. → ลบ 543" (Excel serial ปี พ.ศ. เคยเก็บเป็น `2569-xx`)
+- **`cfpFixEraTxns`** (global ใหม่) ยุบ `iso`/`month` ของข้อมูลเก่าเป็น ค.ศ. ทั้งตอนสร้าง model และตอน merge
+- **`cfpParseStm`** ไม่เอาแถวที่ช่อง "ยอดคงเหลือ" ว่าง มาคิดต้นงวด (PEAK ไม่มีคอลัมน์นี้เลย)
+- **`cfpParseSummary`** จัดชนิดแถวจาก `aoa.kinds` → ย่อหน้า → ค่อยเดาจากยอด
+  ⚠️ **ห้ามเดา "ยอด 0 = หัวข้อกลุ่ม"** — รายการย่อยที่ยังไม่มียอดจะกลายเป็นหัวข้อสีเขียว **และตัวเลขถูกซ่อน**
+- **⚠️⚠️ "ดันเดือนไหน แตะเฉพาะคอลัมน์เดือนนั้น"** — `cfcApplyOldColumns` ทับคอลัมน์เดือนที่ไม่ได้ส่ง
+  ด้วยตัวเลขเดิม **ทุกแถวที่ชื่อตรงกัน** (ไม่ใช่แค่รายการย่อย — แถวรวม/สุทธิถ้าคิดใหม่จะเพี้ยนเมื่อไฟล์เดิม
+  มีรายการย่อยที่ผังหมวดตอนนี้ไม่มี) · `cfcYmOfMonthLabel` แกะ ym จากหัวคอลัมน์ · `cfcCanonRowLabel` จับคู่ชื่อ
+- **⚠️ `ปลายงวด = ต้นงวด + สุทธิ` เฉย ๆ ไม่พอ** — ต้องบวก "เงินนอกกิจกรรม" (โอนระหว่างบัญชี ·
+  ยังไม่ลงหมวด · หมวดผี) ด้วย ผ่าน **`cfcRunCashRows`** ที่เดียว ไม่งั้นปลายงวดเพี้ยนแบบไม่มีอะไรฟ้อง
+- ยุบ `(ไม่ระบุหมวด)` → `(ยังไม่ลงหมวด)` ก่อนสร้างงบ (บรรทัดตรวจเคยโชว์ 0 ตลอด)
+- **ปุ่มดันเปิดหน้าต่างยืนยัน "จะดันเดือนไหน" ก่อนเสมอ** (กันดันผิดเดือน) · เลือกเดือนในหน้าต่าง = ตั้งตัวกรองของหน้าไปเลย
+- **เร็วขึ้น**: `persist` เขียนเฉพาะแถวที่เปลี่ยนผ่าน `WTPData.upsertSheetRows` (เดิม `writeTable`
+  selectAll + upsert ทั้งตารางทุกคลิก) · `CfcCatSelect` กาง `<option>` ตอนจะกดเลือก (ต้อง `ReactDOM.flushSync`) ·
+  `cfcSaveLocal` ไม่กลืน QuotaExceeded เงียบ ๆ
+**ที่ไม่ได้ port (เป็นเรื่องของ EXPRESS ล้วน — BDH ใช้ PEAK):** ตัดใบอนุมัติจ่ายที่ซ้ำกับบรรทัดธนาคาร ·
+หน้าต่างเลือกบัญชีให้ใบที่ไม่มีเลขบัญชี · แถว "ปลายงวด จาก STM" + บรรทัดผลต่าง (PEAK ไม่ส่งยอดคงเหลือมาให้)

@@ -16,7 +16,7 @@
 --     'debtMaster','bankTransfers','stsServiceFee','stsPendingCalc','stsCalcResult','debtEvents',
 --     'users','cashflowSnapshots','followUpsLog','manualOverrides','bankReconLines',
 --     'bankReconState','bankReconBook','bankReconMatch','presence','pnlBase','budgetHo',
---     'cashflowPresent','audit_log'];
+--     'cashflowPresent','cfCoding','audit_log'];
 --   begin foreach t in array names loop execute format('alter table %I disable row level security', t); end loop; end $$;
 -- =====================================================================
 
@@ -26,9 +26,9 @@ returns text language sql stable as $$
   select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'viewer');
 $$;
 
--- ── 27 entity tables: เปิด RLS + อ่านได้ทุก role ที่ login + เขียนเฉพาะ staff/manager ──
+-- ── 28 entity tables: เปิด RLS + อ่านได้ทุก role ที่ login + เขียนเฉพาะ staff/manager ──
 --    ★ รายชื่อนี้ต้องครบ "ทุกตารางที่ schema.sql / pnl-budget.sql / bankrecon-express.sql /
---      cashflow-present.sql สร้าง" (ยกเว้น presence + audit_log ที่มี policy พิเศษด้านล่าง)
+--      cashflow-present.sql / cf-coding.sql สร้าง" (ยกเว้น presence + audit_log ที่มี policy พิเศษด้านล่าง)
 --      เพราะ rls-off-bootstrap.sql ปิด RLS แบบวนลูป "ทุกตาราง" ⇒ ตัวที่ตกหล่นจากรายชื่อนี้
 --      จะค้างเปิดโล่งเงียบ ๆ (2026-09-09 เจอกรณี bankReconBook/bankReconMatch แบบนี้)
 --      ⇒ เพิ่มตารางใหม่เมื่อไหร่ ต้องเติมชื่อในรายชื่อนี้ + ใน ROLLBACK block ข้างบนด้วย
@@ -40,7 +40,7 @@ declare
     'debtLedger','receipts','bankEntries','checks','debtMaster','bankTransfers',
     'stsServiceFee','stsPendingCalc','stsCalcResult','debtEvents','users',
     'cashflowSnapshots','followUpsLog','manualOverrides','bankReconLines','bankReconState',
-    'bankReconBook','bankReconMatch','pnlBase','budgetHo','cashflowPresent'
+    'bankReconBook','bankReconMatch','pnlBase','budgetHo','cashflowPresent','cfCoding'
   ];
 begin
   foreach t in array ents loop

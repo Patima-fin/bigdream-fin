@@ -10,7 +10,7 @@
 --    → ก่อนใส่ข้อมูลจริง ต้องทำ STEP 5 (Supabase Auth + rls-phase4.sql) เสมอ
 --
 -- รันใน SQL Editor หลังรัน schema.sql / pnl-budget.sql / bankrecon-express.sql /
--- cashflow-present.sql ครบแล้ว · รันซ้ำได้ ไม่พัง
+-- cashflow-present.sql / cf-coding.sql ครบแล้ว · รันซ้ำได้ ไม่พัง
 -- =====================================================================
 
 -- ── 1) ปิด RLS ทุกตารางใน public ที่ยังเปิดอยู่ (วนลูปจริง ไม่ใช้รายชื่อ hardcode

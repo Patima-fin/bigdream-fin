@@ -73,7 +73,7 @@
   <script src="app/config.js?v=20260907r"></script>
   <script src="app/data.js?v=20260907r"></script>
   <script src="app/data_sync.js?v=20260907r"></script>
-  <script src="app/data_supabase.js?v=20260907r"></script>
+  <script src="app/data_supabase.js?v=20260910a"></script>
   <!-- อ่านไฟล์ดิบที่โหลดจาก PEAK ได้ตรง ๆ — ต้องมาก่อนหน้าที่มีปุ่มนำเข้า -->
   <script src="app/peak_import.js?v=20260909a"></script>
   <script type="text/babel" src="tweaks-panel.jsx?v=20260907r"></script>
@@ -81,7 +81,7 @@
   <script type="text/babel" src="app/shared_bits.jsx?v=20260907r"></script>
   <script type="text/babel" src="app/charts.jsx?v=20260907r"></script>
   <!-- 1 · Executive Cash Flow Dashboard -->
-  <script type="text/babel" src="app/page_cashflow_present.jsx?v=20260907r"></script>
+  <script type="text/babel" src="app/page_cashflow_present.jsx?v=20260910a"></script>
   <!-- 2 · Bank Daily -->
   <script type="text/babel" src="app/page_bank_diary.jsx?v=20260907r"></script>
   <!-- 3 · ประวัติรับเงิน -->
@@ -92,11 +92,14 @@
   <script type="text/babel" src="app/page_data_extras.jsx?v=20260909b"></script>
   <!-- 7 · บันทึกยอดธนาคาร (มีแท็บ DATA BANK ข้างใน) -->
   <script type="text/babel" src="app/page_daily_balance.jsx?v=20260907r"></script>
-  <!-- 8-10 · ระบบ -->
+  <!-- 8 · งบกระทบยอดกระแสเงินสด — ต้องมาหลัง page_cashflow_present
+         (ตอนกด "ส่งขึ้นหน้า Cash Flow" เรียก cfpParseStm / CFP_TABLE ข้ามไฟล์) -->
+  <script type="text/babel" src="app/page_cf_coding.jsx?v=20260910a"></script>
+  <!-- 9-11 · ระบบ -->
   <script type="text/babel" src="app/page_audit_log.jsx?v=20260907r"></script>
   <script type="text/babel" src="app/page_backup.jsx?v=20260907r"></script>
   <script type="text/babel" src="app/page_users.jsx?v=20260907r"></script>
-  <script type="text/babel" src="app/app.jsx?v=20260909a"></script>
+  <script type="text/babel" src="app/app.jsx?v=20260909c"></script>
 
   <script>
     // Hide splash once React mounts
