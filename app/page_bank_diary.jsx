@@ -2176,15 +2176,47 @@ function BDArPanel({ arList, bankAccounts, today, onBulkPlan, onBulkReschedule, 
  *      — ห้ามคำนวณเองซ้ำ ไม่งั้นยอดบน/ล่างไม่ตรงกัน
  * ══════════════════════════════════════════════════════════════════════════ */
 
-/* หมวดค่าใช้จ่าย 1-4 — ชุดเดียวกับหน้า Weekly Cashflow (ห้ามคิดชุดใหม่) */
-const BD_CAT_ORDER = [1, 2, 3, 4];
-const BD_CAT_NAME  = { 1: 'ดำเนินงาน', 2: 'โครงการ', 3: 'การเงิน', 4: 'เบ็ดเตล็ด' };
-const BD_CAT_HINT  = {
-  1: 'ค่าใช้จ่ายดำเนินงานรายสัปดาห์',
-  2: 'ค่าใช้จ่ายเกี่ยวกับโครงการและงานติดตั้ง',
-  3: 'ต้นทุนทางการเงินและดอกเบี้ย',
-  4: 'ค่าใช้จ่ายเบ็ดเตล็ดและเงินเดือน',
+/* ── ผังหมวดค่าใช้จ่ายของใบสรุปนี้ (8 หมวด) ────────────────────────────────
+ * ⚠️ คนละผังกับ "หมวด 1-4" ของหน้า Cash Flow / Weekly Cashflow ที่อยู่ใน
+ *    shared_bits.jsx (ดำเนินงาน/โครงการ/การเงิน/เบ็ดเตล็ด) — ตั้งใจให้ต่างกัน
+ *    ผังนี้เป็นศัพท์ที่ฝ่ายบัญชีใช้อ่านใบสรุปรอบจ่าย ห้ามเอาเลขไปเทียบข้ามผัง
+ *    (2026-09-14 เปลี่ยนจาก 4 → 8 หมวดตามที่ผู้ใช้กำหนด · ค่า override เดิมที่เก็บ
+ *     ไว้เป็นเลข 1-4 จะถูกอ่านตามผังใหม่ ถ้ามีของเก่าค้างให้กด "⇄ จัดหมวด" ตั้งใหม่) */
+const BD_CAT_ORDER = [1, 2, 3, 4, 5, 6, 7, 8];
+const BD_CAT_NAME  = {
+  1: 'เจ้าหนี้การค้า',
+  2: 'เงินมัดจำ/เงินเบิกล่วงหน้า',
+  3: 'ค่าใช้จ่ายประจำ',
+  4: 'เงินสำรองจ่าย',
+  5: 'เงินสดย่อย',
+  6: 'เงินกู้ยืมและดอกเบี้ย',
+  7: 'เงินเดือนและค่าที่ปรึกษา',
+  8: 'ประมาณการเงินสำรองจ่าย',
 };
+const BD_CAT_HINT  = {
+  1: 'ค่าสินค้า/บริการตามใบแจ้งหนี้เจ้าหนี้',
+  2: 'เงินมัดจำ เงินประกัน และเงินเบิกล่วงหน้า',
+  3: 'ค่าใช้จ่ายที่มีทุกงวด เช่น ค่าเช่า สาธารณูปโภค ภาษี ประกันสังคม',
+  4: 'เงินที่สำรอง/ทดรองจ่ายไปก่อนแล้วมาเคลียร์',
+  5: 'เงินสดย่อยในมือ',
+  6: 'เงินกู้ยืม ลีสซิ่ง และดอกเบี้ย',
+  7: 'เงินเดือน ค่าจ้าง และค่าที่ปรึกษา',
+  8: 'ประมาณการเงินสำรองจ่ายที่ยังไม่มีเอกสาร',
+};
+const BD_CAT_FALLBACK = 1;   // ไม่เข้ากฎไหนเลย = เจ้าหนี้การค้า (เอกสารส่วนใหญ่เป็นแบบนี้)
+
+/* กฎจับหมวดจากข้อความ — เรียงจาก "เฉพาะเจาะจง" ไป "กว้าง" ห้ามสลับลำดับ
+ * ⚠️ หมวด 8 ต้องมาก่อนหมวด 4 เพราะ "ประมาณการเงินสำรองจ่าย" มีคำว่า "สำรองจ่าย" อยู่ด้วย
+ * ⚠️ หมวด 3 จับ "กองทุนสำรองเลี้ยงชีพ" ได้เพราะหมวด 4 บังคับว่าต้องมีคำว่า "สำรองจ่าย" เท่านั้น */
+const BD_CAT_RULES = [
+  { cat: 8, re: /ประมาณการ[^]{0,12}สำรองจ่าย|สำรองจ่าย[^]{0,12}ประมาณการ/ },
+  { cat: 5, re: /เงินสดย่อย|petty\s*cash/i },
+  { cat: 4, re: /สำรองจ่าย|ทดรองจ่าย|เคลียร์เงินสำรอง|reimburse/i },
+  { cat: 2, re: /มัดจำ|เงินประกัน|ค้ำประกัน|ล่วงหน้า|advance|deposit|retention/i },
+  { cat: 6, re: /เงินกู้|เงินยืม|ดอกเบี้ย|เงินต้น|ลีสซิ่ง|ลิสซิ่ง|ลีซ ?อิท|เช่าซื้อ|แคปปิตอล|loan|interest|leasing|capital/i },
+  { cat: 7, re: /เงินเดือน|ค่าจ้าง|ค่าแรง|โบนัส|ค่าตอบแทน|ที่ปรึกษา|payroll|salary|consult|advisor/i },
+  { cat: 3, re: /ค่าเช่า|ค่าน้ำ|ค่าไฟ|ค่าประปา|ค่าโทรศัพท์|อินเทอร์เน็ต|internet|ค่าส่วนกลาง|ค่าธรรมเนียม|ประกันสังคม|สรรพากร|ภ\.? ?ง\.? ?ด|ภ\.? ?พ\.? ?30|กองทุนสำรองเลี้ยงชีพ|ประกันภัย|ค่าบริการรายเดือน|rent|utilit/i },
+];
 
 /* คีย์ override ของหน้านี้ (sync ทั้งทีมผ่าน data.manualOverrides)
  *   bd.act.<docKey>  = ย้ายเฉพาะเอกสารใบนั้น (เจาะจงสุด ชนะทุกอย่าง)
@@ -2218,7 +2250,7 @@ function bdDocKey(it) {
 function bdOvCat(key) {
   if (!key || typeof WTPOverride === 'undefined') return 0;
   const n = parseInt(WTPOverride.resolve(key, 0), 10);
-  return (n >= 1 && n <= 4) ? n : 0;
+  return (n >= 1 && n <= BD_CAT_ORDER.length) ? n : 0;
 }
 
 /* แถวดิบของ PV (รองรับทั้งใบเดี่ยวและกลุ่มหลาย AP ใน PV ใบเดียว) */
@@ -2231,11 +2263,10 @@ function bdPvRaw(it) {
 /* จัดหมวดรายการ 1 บรรทัด — ลำดับตัดสิน (ห้ามสลับ):
  *   1. override รายใบ  bd.act.<docKey>
  *   2. override รายเจ้าหนี้  bd.actv.<vendor>
- *   3. ตัวจัดหมวดหลักของระบบ (categorizeForecastEntry / resolvePvCategory) — ได้ 2/3/4 = ชี้ชัด
- *   4. ได้ 1 หรือไม่มีตัวจัดหมวด (เช็คจ่ายล่วงหน้าตกมาที่นี่ทุกใบ):
- *      4.1 ตาราง "เจ้าหนี้ → หมวด" ของ Cash Flow (ลีซ อิท/ลีสซิ่ง = หมวด 3)
- *      4.2 คำสำคัญกลุ่มการเงิน  4.3 ไม่เข้าเงื่อนไข → หมวด 1
- * ⚠️ ข้ามข้อ 4 เมื่อไร ค่างวดลีสซิ่งที่จ่ายด้วยเช็คจะตกหมวด "ดำเนินงาน" ทุกใบ */
+ *   3. ตัวจัดหมวดของระบบ / ตาราง vendor ของ Cash Flow บอกว่าเป็น "ต้นทุนทางการเงิน" → 6
+ *   4. กฎคำสำคัญ BD_CAT_RULES (ไล่ตามลำดับในตาราง)
+ *   5. ไม่เข้าเงื่อนไขไหนเลย → BD_CAT_FALLBACK (เจ้าหนี้การค้า)
+ * ⚠️ ผังของระบบ (1-4) กับผังของใบสรุปนี้ (1-8) เป็นคนละชุด — ห้ามคืนค่า sys ตรง ๆ */
 function bdRowCat(it, apByNo) {
   if (!it) return 1;
   const dk = bdDocKey(it);
@@ -2258,15 +2289,16 @@ function bdRowCat(it, apByNo) {
       sys = resolvePvCategory(pv, ap);
     }
   } catch (_) { sys = 0; }
-  if (sys >= 2 && sys <= 4) return sys;
+  /* ผังของระบบเป็นคนละชุดกับ 8 หมวดนี้ — แปลได้ตัวเดียวคือ "หมวด 3 = ต้นทุนทางการเงิน"
+     ซึ่งตรงกับ "เงินกู้ยืมและดอกเบี้ย" พอดี ที่เหลือปล่อยให้กฎคำสำคัญตัดสิน */
+  if (sys === 3) return 6;
+  if (typeof cfVendorCat === 'function' && cfVendorCat(vend || it.title || '') === 3) return 6;
 
-  if (typeof cfVendorCat === 'function') {
-    const vc = cfVendorCat(vend || it.title || '');
-    if (vc >= 1 && vc <= 4) return vc;
-  }
   const text = [vend, it.title, it.sub, it.remark].filter(Boolean).join(' ');
-  if (/ลีสซิ่ง|ลิสซิ่ง|เช่าซื้อ|เงินกู้|เงินต้น|ดอกเบี้ย|ค่าธรรมเนียม|leasing|loan|interest/i.test(text)) return 3;
-  return 1;
+  for (let i = 0; i < BD_CAT_RULES.length; i++) {
+    if (BD_CAT_RULES[i].re.test(text)) return BD_CAT_RULES[i].cat;
+  }
+  return BD_CAT_FALLBACK;
 }
 
 /* re-render ทุกครั้งที่มีการเขียน override — ต้องใส่ค่านี้เข้า deps ของ useMemo
@@ -2296,30 +2328,6 @@ function bdSumLoadPick() {
 }
 function bdSumSavePick(list) {
   try { localStorage.setItem(BD_SUM_PICK_KEY, JSON.stringify(list || [])); } catch (_) {}
-}
-
-/* จัดกลุ่มรายการตาม "ชื่อเจ้าหนี้/ผู้จ่ายที่ normalize แล้ว" — หลายใบของรายเดียวกัน
- * ยุบเป็นบรรทัดเดียว แต่ยังกระจายยอดตรงคอลัมน์ธนาคารของแต่ละใบ */
-function bdGroupByCreditor(list) {
-  const m = new Map();
-  (list || []).forEach(e => {
-    const it   = e.it;
-    const name = it.creditor || bdVendorCanon(it.title || '') || it.title || '—';
-    let g = m.get(name);
-    if (!g) g = m.set(name, { key: name, name, date: '', kinds: [], byAcct: {}, total: 0, entries: [] }).get(name);
-    const amt = Math.abs(it.signed);
-    g.entries.push(e);
-    g.byAcct[e.acctNo] = (g.byAcct[e.acctNo] || 0) + amt;
-    g.total += amt;
-    if (g.kinds.indexOf(it.kind) < 0) g.kinds.push(it.kind);
-    if (it.date && (!g.date || it.date < g.date)) g.date = it.date;   // วันของกลุ่ม = ใบที่ครบกำหนดเร็วสุด
-  });
-  // เรียงตาม "วันครบกำหนด" ก่อนเสมอ (ใบไหนถึงคิวจ่าย/รับก่อน อยู่บน) · วันเดียวกันค่อยเรียงยอดมาก→น้อย
-  return [...m.values()].sort((a, b) => {
-    const da = a.date || '9999-12-31', db = b.date || '9999-12-31';
-    if (da !== db) return da < db ? -1 : 1;
-    return b.total - a.total;
-  });
 }
 
 /* จัดกลุ่มขาโอนเป็น "รายการโอน" เดียว (2 ขาของ transferRef เดียวกัน) */
@@ -2399,22 +2407,9 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
   const ovTick = bdUseOverrideTick();                     // ★ ต้องอยู่ใน deps ของ rows ไม่งั้นย้ายหมวดแล้วยอดไม่ขยับ
   const [pick, setPick]           = React.useState(bdSumLoadPick);
   const [pickOpen, setPickOpen]   = React.useState(false);
-  const [expand, setExpand]       = React.useState({});   // { rowKey: acctNo|null }  แถวหลัก
-  const [expandCat, setExpandCat] = React.useState({});   // { cat:    acctNo|null }  หมวด
-  const [openRow, setOpenRow]     = React.useState({});   // { rowKey: acctNo|null }  เจ้าหนี้
   const [catMode, setCatMode]     = React.useState(false);
   const [saving, setSaving]       = React.useState(false);
   const cardRef = React.useRef(null);
-
-  /* กดซ้ำที่เดิม = ปิดเฉพาะอันนั้น · อันอื่นเปิดค้างได้พร้อมกัน (เก็บเป็นแผนที่ทั้ง 3 ชั้น) */
-  const toggleMap  = (setter) => (key, scope) => setter(cur => {
-    const nx = { ...cur }, v = scope || null;
-    if ((key in nx) && nx[key] === v) delete nx[key]; else nx[key] = v;
-    return nx;
-  });
-  const toggleRow  = toggleMap(setExpand);
-  const toggleCat  = toggleMap(setExpandCat);
-  const toggleCred = toggleMap(setOpenRow);
 
   const allNos = (views || []).map(v => v.acct.accountNo);
   const pickedSet = React.useMemo(() => {
@@ -2448,7 +2443,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
       const innReal  = its.filter(i => i.kind !== 'transfer' && i.signed > 0).reduce((s, i) => s + i.signed, 0);
       const outItems = its.filter(i => i.kind !== 'transfer' && i.signed < 0);
       const outReal  = outItems.reduce((s, i) => s - i.signed, 0);
-      const byCat    = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      const byCat    = {}; BD_CAT_ORDER.forEach(c => { byCat[c] = 0; });
       outItems.forEach(i => { byCat[bdRowCat(i, apByNo)] += -i.signed; });
       return {
         acctNo: v.acct.accountNo, acct: v.acct, base: v.base, its,
@@ -2458,7 +2453,8 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
     }), [views, pickedSet, periodEnd, apByNo, ovTick]);
 
   const T = React.useMemo(() => {
-    const t = { base: 0, inn: 0, out: 0, tfIn: 0, tfOut: 0, net: 0, cat: { 1: 0, 2: 0, 3: 0, 4: 0 } };
+    const t = { base: 0, inn: 0, out: 0, tfIn: 0, tfOut: 0, net: 0, cat: {} };
+    BD_CAT_ORDER.forEach(c => { t.cat[c] = 0; });
     rows.forEach(r => {
       t.base += r.base; t.inn += r.innReal; t.out += r.outReal;
       t.tfIn += r.tfIn; t.tfOut += r.tfOut; t.net += r.net;
@@ -2505,7 +2501,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
     } else {
       const parts = String(val).split(':');
       const cat   = parseInt(parts[1], 10);
-      if (!(cat >= 1 && cat <= 4)) return;
+      if (!(cat >= 1 && cat <= BD_CAT_ORDER.length)) return;
       if (parts[0] === 'd') (docKeys || []).forEach(dk => { if (dk) ent[BD_ACT_KEY(dk)] = cat; });
       else if (parts[0] === 'v' && vendor) ent[BD_ACTV_KEY(vendor)] = cat;
       else return;
@@ -2534,7 +2530,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
     return (
       <select key="sel" data-no-capture="1" value="" onClick={(e) => e.stopPropagation()}
         onChange={(e) => { const v = e.target.value; e.target.value = ''; applyMove(v, docKeys, vendor); }}
-        style={{ flex: '0 0 auto', width: 104, maxWidth: 104, fontSize: fz(10.5), padding: '1px 2px',
+        style={{ flex: '0 0 auto', width: 118, maxWidth: 118, fontSize: fz(10.5), padding: '1px 2px',
                  border: '1px solid #cbd5e1', borderRadius: 5, background: '#fff', color: '#475569', fontFamily: 'inherit' }}>
         <option value="">ย้ายหมวด…</option>
         {opts.doc && (
@@ -2552,303 +2548,236 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
     );
   };
 
-  /* ── ตัวสร้างแถว ───────────────────────────────────────────────────────── */
-  /* ── ตัวสร้างแถว ─────────────────────────────────────────────────────────
-   * แถวหลัก = แถบสีประจำส่วน (ยกมา/รับ/จ่าย/โอน/สุทธิ) + รางสีซ้ายสุด
-   * ตัวเลขขีดเส้นประใต้ตัวเลข (เหมือนใบสรุปที่ปรินต์) · คอลัมน์รวมมีพื้นอ่อนคั่นเสมอ */
-  /* ── เซลล์ตัวเลข (ยึดตามใบต้นแบบ) ─────────────────────────────────────
-   * 0 → ขีด · ติดลบ = แดง + พื้นแดงอ่อน (เงินไม่พอต้องเห็นทันที)
-   * ตัวเลขที่มีรายการอยู่เบื้องหลัง = กดได้ + มีเส้นประใต้ */
+  /* ── โทนสีของใบสรุป ─────────────────────────────────────────────────────── */
   const SK = BD_SUM_SKIN;
-  const cell = (v, o) => {
-    const clickable = Math.abs(v) > 0.005 && !o.noExpand;
-    const neg = v < 0;
+
+  /* ── จัดหมวดค่าใช้จ่ายครั้งเดียว ใช้ร่วมกันทั้ง 2 ตาราง ────────────────────
+   * ⚠️ ตารางสรุป (บน) กับตารางรายละเอียด (ล่าง) ต้องกินก้อนเดียวกัน ไม่งั้น
+   *    "รวมทั้งสิ้น" ข้างล่างไม่ตรงกับ "ค่าใช้จ่ายถึงกำหนดชำระ" ข้างบน */
+  const byDue = (a, b) => {
+    const da = a.it.date || '9999-12-31', db = b.it.date || '9999-12-31';
+    if (da !== db) return da < db ? -1 : 1;
+    return Math.abs(b.it.signed) - Math.abs(a.it.signed);
+  };
+  const catGroups = (() => {
+    const m = {};
+    pickOut(null).forEach(e => {
+      const c = bdRowCat(e.it, apByNo);
+      const a = (m[c] = m[c] || { cat: c, byAcct: {}, total: 0, entries: [] });
+      const v = Math.abs(e.it.signed);
+      a.entries.push(e); a.total += v;
+      a.byAcct[e.acctNo] = (a.byAcct[e.acctNo] || 0) + v;
+    });
+    return BD_CAT_ORDER.filter(c => m[c]).map(c => { m[c].entries.sort(byDue); return m[c]; });
+  })();
+
+  const tfGroupsAll = bdGroupTransfers(pickTf(null));
+  const inEntries   = pickIn(null).slice().sort(byDue);
+
+  /* ยอดรวมในรูปแบบเดียวกับแถวรายบัญชี — pick() ตัวเดียวกันจึงใช้ได้ทั้งช่องบัญชีและช่องรวม */
+  const TOTROW = { base: T.base, innReal: T.inn, outReal: T.out, tfIn: T.tfIn, tfOut: T.tfOut, net: T.net, byCat: T.cat };
+
+  /* ── ตารางสรุป: เซลล์ตัวเลข ──────────────────────────────────────────────
+   * 0 → ขีด · ติดลบ = แดง + พื้นแดงอ่อน (เงินไม่พอต้องเห็นทันที)
+   * ไม่มีลูกศร/ไม่มีคลิกกางแล้ว — รายละเอียดกางไว้ที่ตารางล่างเสมอ */
+  const sumCell = (v, o) => {
+    const neg = v < -0.005;
     const col = neg ? SK.red : (o.tot ? (o.totColor || o.color || SK.navy) : (o.color || 'var(--ink-800)'));
     const bg  = neg ? '#fdeaea' : (o.tot ? SK.totCol : (o.rowBg || undefined));
     return (
       <td key={o.k} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
         fontWeight: neg ? 800 : (o.tot ? 800 : (o.bold ? 700 : (o.semi ? 600 : 400))), color: col, background: bg,
         borderTop: o.topRule ? '2px solid ' + SK.navy : undefined,
-        fontSize: fz(13), padding: pad('9px 12px') }}>
-        {Math.abs(v) < 0.005 ? <span style={{ color: 'var(--ink-300)' }}>—</span> : (
-          <span onClick={clickable ? () => toggleRow(o.rowKey, o.acctNo) : undefined}
-            title={clickable ? 'คลิกกางดูรายการที่รวมอยู่ในยอดนี้' : undefined}
-            style={{ cursor: clickable ? 'pointer' : 'default',
-              borderBottom: clickable ? '1px dashed color-mix(in oklch, currentColor 40%, transparent)' : 'none' }}>
-            {neg ? '−' + fmtMoney(Math.abs(v)) : (o.sign || '') + fmtMoney(Math.abs(v))}
-          </span>
-        )}
+        fontSize: fz(o.indent ? 12.5 : 13), padding: pad('10px 12px') }}>
+        {Math.abs(v) < 0.005 ? <span style={{ color: 'var(--ink-300)' }}>—</span>
+          : (v < 0 ? '−' : (o.sign || '')) + fmtMoney(Math.abs(v))}
       </td>
     );
   };
 
-  /* แถวว่าง (ช่วงนี้ไม่มีรายการ) */
-  const emptyRow = (key, bg) => (
-    <tr key={key}><td colSpan={rows.length + 2} className="muted"
-      style={{ padding: pad('10px 16px'), background: bg || SK.emptyBg }}>ไม่มีรายการในช่วงนี้</td></tr>
+  /* แถวของตารางสรุป (แถวเดียวจบ — ไม่มีชั้นย่อยแล้ว) */
+  const sumRow = (key, label, pick, o) => (
+    <tr key={key} style={{ background: o.rowBg }}>
+      <td title={o.hint || undefined}
+        style={{ fontWeight: o.bold ? 800 : (o.semi ? 600 : 400), padding: pad('10px 12px'),
+          paddingLeft: o.indent ? sp(30) : sp(12), fontSize: fz(o.indent ? 12.5 : 13),
+          color: o.labelColor || (o.indent ? 'var(--ink-700)' : SK.navy), whiteSpace: 'nowrap',
+          background: o.rowBg || undefined,
+          borderLeft: o.indent ? '3px solid ' + SK.navy : undefined,
+          borderTop: o.topRule ? '2px solid ' + SK.navy : undefined }}>
+        {label}
+        {o.note ? <span style={{ marginLeft: 8, fontWeight: 400, fontSize: fz(11), color: 'var(--ink-400)' }}>{o.note}</span> : null}
+      </td>
+      {rows.map((r, k) => sumCell(pick(r), { ...o, k }))}
+      {sumCell(pick(TOTROW), { ...o, k: 'tot', tot: true, bold: true })}
+    </tr>
   );
 
-  /* 1 เจ้าหนี้ = 1 บรรทัด (หลายใบยุบรวม ติดเลขจำนวน) · กดชื่อกางดูรายใบ
-   *   เรียงตามวันครบกำหนดก่อนเสมอ (ดู bdGroupByCreditor) */
-  const itemLines = (body, list, padLeft, kp, canMove, scope) => {
-    const groups = bdGroupByCreditor(list);
-    if (!groups.length) { body.push(emptyRow(kp + '-empty', canMove ? SK.cream : SK.emptyBg)); return; }
-    const CAP = 20;
-    const keepKeys = groups.length <= CAP ? null
-      : new Set(groups.slice().sort((a, b) => b.total - a.total).slice(0, CAP).map(g => g.key));
-    const shown = keepKeys ? groups.filter(g => keepKeys.has(g.key)) : groups;
-    const rest  = keepKeys ? groups.filter(g => !keepKeys.has(g.key)) : [];
-    const cellSty = { textAlign: 'right', padding: pad('5px 12px'), fontVariantNumeric: 'tabular-nums',
-                      whiteSpace: 'nowrap', color: 'var(--ink-700)', borderTop: '1px solid ' + SK.rowLine, fontSize: fz(11.5) };
-
-    shown.forEach((g, k) => {
-      const rowKey  = kp + '|' + g.key;
-      const open3   = (rowKey in openRow);
-      const gScope  = openRow[rowKey] || scope;
-      const docKeys = g.entries.map(e => bdDocKey(e.it)).filter(Boolean);
-      const many    = g.entries.length > 1;
-      const tg      = g.kinds.length === 1 ? bdItemTag(g.kinds[0]).t : '';
-      body.push(
-        <tr key={kp + 'g' + k} style={{ background: '#fff', fontSize: fz(11.5) }}>
-          <td onClick={() => toggleCred(rowKey, null)}
-            title={many ? 'กดดูเอกสารทั้ง ' + g.entries.length + ' ใบ' : 'กดดูเลขเอกสาร/รายละเอียด'}
-            style={{ padding: pad('5px 12px'), paddingLeft: padLeft, borderLeft: '2px solid ' + SK.rail,
-              borderTop: '1px solid ' + SK.rowLine, cursor: 'pointer', userSelect: 'none', fontSize: fz(11.5) }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7,
-              maxWidth: canMove && catMode ? 560 : 430, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              <span data-no-capture="1" style={{ flex: 'none', width: 10, fontSize: fz(7), color: open3 ? SK.navy : 'var(--ink-300)' }}>{open3 ? '▼' : '▶'}</span>
-              <span style={{ flex: 'none', fontSize: fz(10), color: '#9aa8bb' }}>{tg}</span>
-              <span title={g.name} style={{ fontWeight: 600, color: 'var(--ink-800)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name}</span>
-              {many && (
-                <span title={g.entries.length + ' ใบ'} style={{ flex: 'none', display: 'inline-grid', placeItems: 'center', minWidth: 16, height: 16,
-                  padding: '0 4px', fontSize: fz(9.5), fontWeight: 700, color: '#fff', background: '#9ab8a6', borderRadius: 8 }}>{g.entries.length}</span>
-              )}
-              <span style={{ flex: 'none', color: 'var(--ink-400)' }}>{bdShortDate(g.date)}</span>
-              {canMove ? ovBadge(docKeys, g.key) : null}
-              {canMove ? catSelect({ doc: !many, vendor: true }, docKeys, g.key) : null}
-            </div>
-          </td>
-          {rows.map(r => (
-            <td key={r.acctNo} style={cellSty}>{g.byAcct[r.acctNo] ? fmtMoney(g.byAcct[r.acctNo]) : ''}</td>
-          ))}
-          <td style={{ ...cellSty, background: SK.totCol }}>{fmtMoney(g.total)}</td>
-        </tr>
-      );
-      if (!open3) return;
-      const docs = g.entries.filter(e => !gScope || e.acctNo === gScope)
-                            .slice().sort((a, b) => (a.it.date || '') < (b.it.date || '') ? -1 : 1);
-      const DCAP = 25;
-      docs.slice(0, DCAP).forEach((e, j) => {
-        const it = e.it, dk = bdDocKey(it);
-        const note = [it.sub, it.remark].filter(Boolean).join(' · ');
-        body.push(
-          <tr key={kp + 'g' + k + 'd' + j} style={{ background: SK.subBg, fontSize: fz(11.5) }}>
-            <td style={{ padding: pad('4px 12px'), paddingLeft: padLeft + sp(26), borderLeft: '2px solid ' + SK.rail,
-              color: 'var(--ink-500)', fontSize: fz(11.5) }}>
-              <div title={note} style={{ display: 'flex', alignItems: 'center', gap: 7,
-                maxWidth: canMove && catMode ? 560 : 430, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                <span style={{ flex: 'none' }}>{bdShortDate(it.date)}</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{note || (it.title || '—')}</span>
-                {canMove ? ovBadge([dk], '') : null}
-                {canMove && many ? catSelect({ doc: !!dk, vendor: false }, [dk], g.key) : null}
-              </div>
-            </td>
-            {rows.map(r => (
-              <td key={r.acctNo} style={{ ...cellSty, borderTop: 'none', color: 'var(--ink-500)' }}>
-                {r.acctNo === e.acctNo ? fmtMoney(Math.abs(it.signed)) : ''}
-              </td>
-            ))}
-            <td style={{ ...cellSty, borderTop: 'none', background: SK.totCol, color: 'var(--ink-500)' }}>{fmtMoney(Math.abs(it.signed))}</td>
-          </tr>
-        );
-      });
-      if (docs.length > DCAP) {
-        const r2 = restOf(docs.slice(DCAP));
-        body.push(
-          <tr key={kp + 'g' + k + 'more'} style={{ background: SK.subBg, fontSize: fz(11.5) }}>
-            <td style={{ padding: pad('4px 12px'), paddingLeft: padLeft + sp(26), borderLeft: '2px solid ' + SK.rail, color: 'var(--ink-400)' }}>
-              …อีก {docs.length - DCAP} ใบ
-            </td>
-            {rows.map(r => <td key={r.acctNo} style={{ ...cellSty, borderTop: 'none' }}>{r2.byAcct[r.acctNo] ? fmtMoney(r2.byAcct[r.acctNo]) : ''}</td>)}
-            <td style={{ ...cellSty, borderTop: 'none', background: SK.totCol }}>{fmtMoney(r2.total)}</td>
-          </tr>
-        );
-      }
-    });
-    if (rest.length) {
-      const byAcct = {}; let total = 0;
-      rest.forEach(g => { Object.keys(g.byAcct).forEach(a => { byAcct[a] = (byAcct[a] || 0) + g.byAcct[a]; }); total += g.total; });
-      body.push(
-        <tr key={kp + '-more'} style={{ background: '#fff', fontSize: fz(11.5) }}>
-          <td style={{ padding: pad('5px 12px'), paddingLeft: padLeft, borderLeft: '2px solid ' + SK.rail,
-            borderTop: '1px solid ' + SK.rowLine, color: 'var(--ink-400)' }}>…อีก {rest.length} ราย</td>
-          {rows.map(r => <td key={r.acctNo} style={cellSty}>{byAcct[r.acctNo] ? fmtMoney(byAcct[r.acctNo]) : ''}</td>)}
-          <td style={{ ...cellSty, background: SK.totCol }}>{fmtMoney(total)}</td>
-        </tr>
-      );
-    }
-  };
-
-  /* กาง "ค่าใช้จ่ายถึงกำหนดชำระ" → หมวด 1-4 (เฉพาะหมวดที่มีรายการ) → กางต่อดูเจ้าหนี้ได้ */
-  const catLines = (body, scopeAcct) => {
-    const list = pickOut(scopeAcct);
-    const agg = {};
-    list.forEach(e => {
-      const c = bdRowCat(e.it, apByNo);
-      const a = (agg[c] = agg[c] || { byAcct: {}, total: 0, entries: [] });
-      const v = Math.abs(e.it.signed);
-      a.entries.push(e); a.total += v;
-      a.byAcct[e.acctNo] = (a.byAcct[e.acctNo] || 0) + v;
-    });
-    const present = BD_CAT_ORDER.filter(c => agg[c]);
-    if (!present.length) { body.push(emptyRow('cat-empty', SK.cream)); return; }
-    present.forEach(c => {
-      const a = agg[c];
-      const catKey = 'cat' + c;
-      const open2  = (catKey in expandCat);
-      const cScope = expandCat[catKey] || scopeAcct;
-      const num = (v, k, isTot, no) => {
-        const hot = Math.abs(v) > 0.005;
-        return (
-          <td key={k} style={{ textAlign: 'right', padding: pad('8px 12px'), fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-            fontWeight: isTot ? 800 : 600, background: isTot ? SK.totCol : SK.cream,
-            color: isTot ? SK.red : 'var(--ink-700)', fontSize: fz(12.5) }}>
-            {!hot ? <span style={{ color: 'var(--ink-300)' }}>—</span> : (
-              <span onClick={() => toggleCat(catKey, no)} title="คลิกกางดูรายการในหมวดนี้"
-                style={{ cursor: 'pointer', borderBottom: '1px dashed color-mix(in oklch, currentColor 40%, transparent)' }}>
-                {fmtMoney(v)}
-              </span>
-            )}
-          </td>
-        );
-      };
-      body.push(
-        <tr key={catKey} style={{ background: SK.cream }}>
-          <td onClick={() => toggleCat(catKey, scopeAcct)} title={BD_CAT_HINT[c] + ' — กดเพื่อกางดูรายการในหมวดนี้'}
-            style={{ padding: pad('8px 12px 8px 30px'), borderLeft: '3px solid ' + SK.navy, background: SK.cream,
-              cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', fontSize: fz(12.5) }}>
-            <span data-no-capture="1" style={{ display: 'inline-block', width: 13, fontSize: fz(8), verticalAlign: 'middle',
-              color: open2 ? SK.navy : 'var(--ink-300)' }}>{open2 ? '▼' : '▶'}</span>
-            <span style={{ fontWeight: 700, fontSize: fz(12.5), color: 'var(--ink-700)' }}>{BD_CAT_NAME[c]}</span>
-            <span style={{ marginLeft: 8, fontSize: fz(11), color: 'var(--ink-400)' }}>{a.entries.length} รายการ</span>
-          </td>
-          {rows.map((r, k) => num(a.byAcct[r.acctNo] || 0, k, false, r.acctNo))}
-          {num(a.total, 'tot', true, scopeAcct)}
-        </tr>
-      );
-      if (open2) itemLines(body, a.entries.filter(e => !cScope || e.acctNo === cScope), 52, 'c' + c, true, cScope);
-    });
-  };
-
-  /* ยอดรวมในรูปแบบเดียวกับแถวรายบัญชี — pick() ตัวเดียวกันจึงใช้ได้ทั้งช่องบัญชีและช่องรวม */
-  const TOTROW = { base: T.base, innReal: T.inn, outReal: T.out, tfIn: T.tfIn, tfOut: T.tfOut, net: T.net };
-
-  /* แถวหลัก — กดชื่อ = ทุกบัญชี · กดตัวเลข = เฉพาะบัญชีนั้น */
-  const line = (body, label, pick, o) => {
-    const canOpen  = !o.noExpand;
-    const open     = canOpen && (o.rowKey in expand);
-    const openAcct = expand[o.rowKey] || null;
-    body.push(
-      <tr key={o.rowKey} style={{ background: o.rowBg }}>
-        <td onClick={canOpen ? () => toggleRow(o.rowKey, null) : undefined}
-          title={canOpen ? 'กางดูรายการทุกบัญชี'
-                         : 'ยอดที่บันทึกไว้ล่าสุดจากหน้าบันทึกยอดธนาคาร — ไม่ได้เกิดจากการรวมรายการ จึงไม่มีรายการย่อยให้กาง'}
-          style={{ fontWeight: o.bold ? 800 : 400, padding: pad('9px 12px'), paddingLeft: o.indent ? sp(30) : sp(12),
-            fontSize: fz(13), color: o.labelColor || SK.navy, whiteSpace: 'nowrap',
-            cursor: canOpen ? 'pointer' : 'default', userSelect: 'none',
-            background: o.rowBg || undefined, borderTop: o.topRule ? '2px solid ' + SK.navy : undefined }}>
-          <span data-no-capture="1" style={{ display: 'inline-block', width: 13, fontSize: fz(8), verticalAlign: 'middle',
-            color: open ? SK.navy : 'var(--ink-300)' }}>{canOpen ? (open ? '▼' : '▶') : ''}</span>
-          {label}
-          {o.note ? <span style={{ marginLeft: 7, fontWeight: 400, fontSize: fz(11), color: 'var(--ink-400)' }}>{o.note}</span> : null}
-        </td>
-        {rows.map((r, k) => cell(pick(r), { ...o, k, acctNo: r.acctNo }))}
-        {cell(pick(TOTROW), { ...o, k: 'tot', tot: true, bold: true, acctNo: null })}
-      </tr>
-    );
-    if (!open) return;
-    if (o.rowKey === 'out') { catLines(body, openAcct); return; }
-    if (o.rowKey === 'net') {
-      [['ยอดยกมา (เงินคงเหลือใช้ได้)', (r) => r.base],
-       ['+ คาดรับเงินเข้า',            (r) => r.innReal],
-       ['+ รับโอนเข้า',                (r) => r.tfIn],
-       ['− ค่าใช้จ่ายถึงกำหนดชำระ',    (r) => -r.outReal],
-       ['− โอนออก',                    (r) => -r.tfOut],
-      ].forEach(([lb, fn], i) => {
-        const sty = { textAlign: 'right', padding: pad('4px 12px'), fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-                      fontSize: fz(11.5), color: 'var(--ink-600)' };
-        body.push(
-          <tr key={'net#' + i} style={{ background: SK.subBg, fontSize: fz(11.5) }}>
-            <td style={{ padding: pad('4px 12px 4px 38px'), color: 'var(--ink-600)', whiteSpace: 'nowrap', fontSize: fz(11.5) }}>{lb}</td>
-            {rows.map(r => { const v = fn(r); return <td key={r.acctNo} style={sty}>{v ? (v < 0 ? '−' : '+') + fmtMoney(Math.abs(v)) : ''}</td>; })}
-            <td style={{ ...sty, background: SK.totCol }}>{(() => { const v = rows.reduce((s, r) => s + fn(r), 0); return v ? (v < 0 ? '−' : '+') + fmtMoney(Math.abs(v)) : '—'; })()}</td>
-          </tr>
-        );
-      });
-      return;
-    }
-    itemLines(body, o.rowKey === 'in' ? pickIn(openAcct) : [], 34, o.rowKey, false, openAcct);
-  };
-
-  /* ── ประกอบแถวทั้งใบ ─────────────────────────────────────────────────── */
+  /* ── ประกอบตารางสรุป ─────────────────────────────────────────────────── */
   const body = [];
-  line(body, 'เงินคงเหลือใช้ได้', r => r.base, { rowKey: 'base', bold: true, semi: true, rowBg: SK.mint, noExpand: true });
-  if (T.inn > 0.005) line(body, 'คาดรับเงินเข้า', r => r.innReal, { rowKey: 'in', semi: true, sign: '+', totColor: SK.green });
-  line(body, 'ค่าใช้จ่ายถึงกำหนดชำระ', r => r.outReal, { rowKey: 'out', bold: true, semi: true, rowBg: SK.cream });
+  body.push(sumRow('base', 'เงินคงเหลือใช้ได้', r => r.base, { bold: true, semi: true, rowBg: SK.mint }));
+  if (T.inn > 0.005) body.push(sumRow('in', 'คาดรับเงินเข้า', r => r.innReal, { semi: true, sign: '+', totColor: SK.green }));
+  body.push(sumRow('out', 'ค่าใช้จ่ายถึงกำหนดชำระ', r => r.outReal, { bold: true, semi: true, rowBg: SK.cream }));
+  catGroups.forEach(g => body.push(sumRow('cat' + g.cat, BD_CAT_NAME[g.cat], r => (r.byCat || {})[g.cat] || 0,
+    { indent: true, semi: true, rowBg: '#fff', totColor: SK.red, hint: BD_CAT_HINT[g.cat],
+      note: g.entries.length + ' รายการ' })));
 
   /* โอนระหว่างบัญชี — ย้ายเงินภายใน หักกันเองเป็นศูนย์เสมอ */
-  const tfGroupsAll = bdGroupTransfers(pickTf(null));
   if (tfGroupsAll.length) {
-    const openTf = ('tf' in expand);
-    const tfNum = (v, k, isTot) => (
-      <td key={k} style={{ textAlign: 'right', padding: pad('8px 12px'), fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-        fontWeight: 600, background: isTot ? SK.totCol : SK.tfBg, fontSize: fz(13),
-        color: v > 0.005 ? SK.green : (v < -0.005 ? SK.red : 'var(--ink-300)') }}>
-        {Math.abs(v) < 0.005 ? '—' : (v > 0 ? '+' : '−') + fmtMoney(Math.abs(v))}
-      </td>
-    );
-    body.push(
-      <tr key="tf" style={{ background: SK.tfBg }}>
-        <td onClick={() => toggleRow('tf', null)} title="กดดูว่าย้ายเงินจากบัญชีไหนไปบัญชีไหน"
-          style={{ padding: pad('8px 12px'), whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
-            background: SK.tfBg, borderTop: '1px solid ' + SK.head, fontSize: fz(13) }}>
-          <span data-no-capture="1" style={{ display: 'inline-block', width: 13, fontSize: fz(8), verticalAlign: 'middle',
-            color: openTf ? SK.navy : 'var(--ink-300)' }}>{openTf ? '▼' : '▶'}</span>
-          <span style={{ fontWeight: 700, fontSize: fz(13), color: SK.navy }}>↔ โอนระหว่างบัญชี</span>
-          <span style={{ marginLeft: 7, fontSize: fz(11), color: 'var(--ink-400)' }}>
-            {tfGroupsAll.length} รายการ · ย้ายเงินภายใน หักกันเองเป็นศูนย์
-          </span>
-        </td>
-        {rows.map((r, k) => tfNum(r.tfIn - r.tfOut, k, false))}
-        {tfNum(T.tfIn - T.tfOut, 'tot', true)}
-      </tr>
-    );
-    if (openTf) bdGroupTransfers(pickTf(expand['tf'])).forEach((g, k) => {
-      body.push(
-        <tr key={'tf' + k} style={{ background: SK.subBg, fontSize: fz(11.5) }}>
-          <td style={{ padding: pad('4px 12px 4px 38px'), color: 'var(--ink-600)', whiteSpace: 'nowrap', fontSize: fz(11.5) }}>
-            <span style={{ fontWeight: 600 }}>{bdShortParty(g.from) || '—'}</span>
-            <span style={{ margin: '0 6px', color: SK.navy, fontWeight: 800 }}>→</span>
-            <span style={{ fontWeight: 600 }}>{bdShortParty(g.to) || '—'}</span>
-            <span style={{ marginLeft: 7, color: 'var(--ink-400)' }}>{bdShortDate(g.date)}</span>
-          </td>
-          {rows.map(r => {
-            const v = g.byAcct[r.acctNo] || 0;
-            return (
-              <td key={r.acctNo} style={{ textAlign: 'right', padding: pad('4px 12px'), fontVariantNumeric: 'tabular-nums',
-                whiteSpace: 'nowrap', fontSize: fz(11.5), color: v > 0 ? SK.green : (v < 0 ? SK.red : 'var(--ink-200)') }}>
-                {!v ? '' : (v > 0 ? '+' : '−') + fmtMoney(Math.abs(v))}
-              </td>
-            );
-          })}
-          <td style={{ textAlign: 'right', padding: pad('4px 12px'), background: SK.totCol, color: 'var(--ink-300)', fontSize: fz(11.5) }}>—</td>
-        </tr>
-      );
-    });
+    body.push(sumRow('tf', '↔ โอนระหว่างบัญชี', r => r.tfIn - r.tfOut,
+      { rowBg: SK.tfBg, semi: true, sign: '+', color: SK.green, totColor: SK.green,
+        note: tfGroupsAll.length + ' รายการ · ย้ายเงินภายใน หักกันเองเป็นศูนย์' }));
   }
 
-  line(body, 'เงินคงเหลือสุทธิ', r => r.net, { rowKey: 'net', bold: true, topRule: true, rowBg: SK.netBg,
-    color: T.net < 0 ? SK.red : SK.navy, totColor: T.net < 0 ? SK.red : SK.navy });
+  body.push(sumRow('net', 'เงินคงเหลือสุทธิ', r => r.net, { bold: true, topRule: true, rowBg: SK.netBg,
+    color: T.net < 0 ? SK.red : SK.navy, totColor: T.net < 0 ? SK.red : SK.navy }));
+
+  /* ══ ตารางรายละเอียด (ล่าง) ═══════════════════════════════════════════════
+   * กางไว้เสมอ ไม่มีลูกศรเปิด/ปิด ⇒ กด "📷 บันทึกรูป" แล้วได้ใบที่มีรายการครบ
+   * 1 บัญชี = 3 คอลัมน์ตามใบต้นแบบ (ชื่อ · ครบกำหนด · จำนวน)
+   * หลายบัญชี = แทรกคอลัมน์รายบัญชีไว้ก่อนคอลัมน์จำนวน (ไม่งั้นดูไม่ออกว่าจ่ายจากบัญชีไหน)
+   * ช่องชื่อไม่ล็อกความกว้างและปล่อยให้ตัดบรรทัดได้ — คำอธิบายยาว ๆ จะได้ไม่โดนตัดท้าย */
+  const multi     = rows.length > 1;
+  const detLine   = '1px solid ' + SK.rowLine;
+  const detNumSty = { textAlign: 'right', padding: pad('7px 14px'), fontVariantNumeric: 'tabular-nums',
+                      whiteSpace: 'nowrap', fontSize: fz(12.5), borderTop: detLine };
+  const detMinW   = sp(320 + (multi ? rows.length * 130 : 0) + 150);
+  const ROW_CAP   = 60;   // กันใบยาวจนเซฟรูปไม่ไหว — ส่วนเกินยุบเป็นบรรทัดเดียว (ไม่ตัดทิ้งเงียบ ๆ)
+
+  const detHeadCell = (txt, o) => (
+    <th key={o.k} style={{ textAlign: o.right ? 'right' : 'left', textTransform: 'none', whiteSpace: 'nowrap',
+      background: o.tot ? SK.totHead : SK.head, borderBottom: '2px solid ' + SK.navy,
+      fontSize: fz(12), fontWeight: 700, color: SK.navy, padding: pad('10px 14px'),
+      width: o.w ? sp(o.w) : undefined }}>{txt}</th>
+  );
+  const detHead = (nameLabel) => (
+    <thead>
+      <tr>
+        {detHeadCell(nameLabel, { k: 'name' })}
+        {detHeadCell('ครบกำหนด', { k: 'due', w: 110 })}
+        {multi && rows.map(r => detHeadCell((bdBrand(r.acct.bankName).label || '') + ' ' + bdLast4(r.acct.accountNo),
+          { k: r.acctNo, right: true, w: 130 }))}
+        {detHeadCell('จำนวน (บาท)', { k: 'amt', right: true, tot: true, w: 150 })}
+      </tr>
+    </thead>
+  );
+
+  /* หัวกลุ่มในตารางรายละเอียด (= 1 หมวดค่าใช้จ่าย) */
+  const detGroup = (key, label, hint, count, byAcct, total) => (
+    <tr key={key} style={{ background: SK.head }}>
+      <td title={hint} style={{ padding: pad('8px 14px'), borderLeft: '3px solid ' + SK.navy, borderTop: detLine }}>
+        <span style={{ fontWeight: 800, fontSize: fz(12.5), color: SK.navy }}>{label}</span>
+        <span style={{ marginLeft: 8, display: 'inline-block', minWidth: sp(17), padding: '0 5px', borderRadius: 9,
+          background: SK.navy, color: '#fff', fontSize: fz(10), fontWeight: 700, textAlign: 'center' }}>{count}</span>
+      </td>
+      <td style={{ background: SK.head, borderTop: detLine }} />
+      {multi && rows.map(r => (
+        <td key={r.acctNo} style={{ ...detNumSty, background: SK.head, fontWeight: 700, color: 'var(--ink-700)' }}>
+          {byAcct[r.acctNo] ? fmtMoney(byAcct[r.acctNo]) : ''}
+        </td>
+      ))}
+      <td style={{ ...detNumSty, background: SK.totCol, fontWeight: 800, fontSize: fz(13), color: SK.navy }}>{fmtMoney(total)}</td>
+    </tr>
+  );
+
+  /* 1 เอกสาร = 1 บรรทัด (ชื่อเจ้าหนี้ + คำอธิบาย/เลขที่เอกสารใต้ชื่อ) */
+  const detRow = (key, e, canMove) => {
+    const it   = e.it, dk = bdDocKey(it);
+    const name = it.creditor || bdVendorCanon(it.title || '') || it.title || '—';
+    const note = [it.remark, it.sub].filter(Boolean).join(' · ');
+    const amt  = Math.abs(it.signed);
+    return (
+      <tr key={key} style={{ background: '#fff' }}>
+        <td style={{ padding: pad('7px 14px'), borderTop: detLine, lineHeight: 1.4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 600, fontSize: fz(12.5), color: 'var(--ink-800)' }}>{name}</span>
+            {canMove ? ovBadge([dk], name) : null}
+            {canMove ? catSelect({ doc: !!dk, vendor: true }, [dk], name) : null}
+          </div>
+          {note ? <div style={{ fontSize: fz(11), color: 'var(--ink-400)' }}>{note}</div> : null}
+        </td>
+        <td style={{ ...detNumSty, textAlign: 'left', color: 'var(--ink-500)' }}>{bdShortDate(it.date) || '—'}</td>
+        {multi && rows.map(r => (
+          <td key={r.acctNo} style={{ ...detNumSty, color: 'var(--ink-600)' }}>{r.acctNo === e.acctNo ? fmtMoney(amt) : ''}</td>
+        ))}
+        <td style={{ ...detNumSty, background: SK.totCol, fontWeight: 700 }}>{fmtMoney(amt)}</td>
+      </tr>
+    );
+  };
+
+  /* บรรทัด "…อีก N ใบ" — ยอดรวมของส่วนที่ไม่ได้พิมพ์ออกมา */
+  const detRest = (key, list) => {
+    const r2 = restOf(list);
+    return (
+      <tr key={key} style={{ background: SK.subBg }}>
+        <td style={{ padding: pad('6px 14px'), borderTop: detLine, color: 'var(--ink-400)', fontSize: fz(11.5) }}>
+          …อีก {list.length} ใบ
+        </td>
+        <td style={{ borderTop: detLine }} />
+        {multi && rows.map(r => (
+          <td key={r.acctNo} style={{ ...detNumSty, color: 'var(--ink-500)' }}>{r2.byAcct[r.acctNo] ? fmtMoney(r2.byAcct[r.acctNo]) : ''}</td>
+        ))}
+        <td style={{ ...detNumSty, background: SK.totCol, color: 'var(--ink-500)' }}>{fmtMoney(r2.total)}</td>
+      </tr>
+    );
+  };
+
+  /* แถวรวมท้ายตารางรายละเอียด */
+  const detTotal = (key, label, byAcct, total) => (
+    <tr key={key}>
+      <td style={{ padding: pad('10px 14px'), borderTop: '2px solid ' + SK.navy, fontWeight: 800,
+        fontSize: fz(13.5), color: SK.navy }}>{label}</td>
+      <td style={{ borderTop: '2px solid ' + SK.navy }} />
+      {multi && rows.map(r => (
+        <td key={r.acctNo} style={{ ...detNumSty, borderTop: '2px solid ' + SK.navy, fontWeight: 800, fontSize: fz(13.5) }}>
+          {byAcct[r.acctNo] ? fmtMoney(byAcct[r.acctNo]) : '—'}
+        </td>
+      ))}
+      <td style={{ ...detNumSty, borderTop: '2px solid ' + SK.navy, background: SK.totCol, fontWeight: 800,
+        fontSize: fz(13.5), color: SK.navy }}>{fmtMoney(total)}</td>
+    </tr>
+  );
+
+  const acctTotals = (fn) => { const m = {}; rows.forEach(r => { m[r.acctNo] = fn(r); }); return m; };
+
+  /* รายละเอียดค่าใช้จ่าย — หัวกลุ่มตามหมวด แล้วไล่รายใบตามวันครบกำหนด */
+  const outBody = [];
+  catGroups.forEach(g => {
+    outBody.push(detGroup('cg' + g.cat, BD_CAT_NAME[g.cat], BD_CAT_HINT[g.cat], g.entries.length, g.byAcct, g.total));
+    g.entries.slice(0, ROW_CAP).forEach((e, i) => outBody.push(detRow('cg' + g.cat + 'r' + i, e, true)));
+    if (g.entries.length > ROW_CAP) outBody.push(detRest('cg' + g.cat + 'rest', g.entries.slice(ROW_CAP)));
+  });
+  if (outBody.length) outBody.push(detTotal('outtot', 'รวมทั้งสิ้น', acctTotals(r => r.outReal), T.out));
+
+  /* รายละเอียดเงินเข้า */
+  const inBody = [];
+  inEntries.slice(0, ROW_CAP).forEach((e, i) => inBody.push(detRow('inr' + i, e, false)));
+  if (inEntries.length > ROW_CAP) inBody.push(detRest('inrest', inEntries.slice(ROW_CAP)));
+  if (inBody.length) inBody.push(detTotal('intot', 'รวมเงินเข้า', acctTotals(r => r.innReal), T.inn));
+
+  /* รายละเอียดโอนระหว่างบัญชี (byAcct ของขาโอนเก็บเครื่องหมายไว้: เข้า + / ออก −) */
+  const tfBody = tfGroupsAll.map((g, i) => {
+    const amt = Object.keys(g.byAcct).reduce((s, a) => s + Math.max(0, g.byAcct[a]), 0);
+    return (
+      <tr key={'tfr' + i} style={{ background: '#fff' }}>
+        <td style={{ padding: pad('7px 14px'), borderTop: detLine, fontSize: fz(12.5), color: 'var(--ink-800)' }}>
+          <span style={{ fontWeight: 600 }}>{bdShortParty(g.from) || '—'}</span>
+          <span style={{ margin: '0 6px', color: SK.navy, fontWeight: 800 }}>→</span>
+          <span style={{ fontWeight: 600 }}>{bdShortParty(g.to) || '—'}</span>
+        </td>
+        <td style={{ ...detNumSty, textAlign: 'left', color: 'var(--ink-500)' }}>{bdShortDate(g.date) || '—'}</td>
+        {multi && rows.map(r => {
+          const v = g.byAcct[r.acctNo] || 0;
+          return (
+            <td key={r.acctNo} style={{ ...detNumSty, color: v > 0 ? SK.green : (v < 0 ? SK.red : 'var(--ink-200)') }}>
+              {!v ? '' : (v > 0 ? '+' : '−') + fmtMoney(Math.abs(v))}
+            </td>
+          );
+        })}
+        <td style={{ ...detNumSty, background: SK.totCol, fontWeight: 700 }}>{fmtMoney(amt)}</td>
+      </tr>
+    );
+  });
 
   /* ── บันทึกเป็นรูป PNG (ตัดปุ่ม/ดรอปดาวน์ออก · กางตารางให้เต็มก่อนแคป) ── */
   const handleSaveImage = async () => {
@@ -2856,11 +2785,13 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
     const node = cardRef.current; if (!node) return;
     setSaving(true);
     // ⚠️ จอแคบ = ตารางเลื่อนแนวนอนอยู่ → แคปตรง ๆ จะได้ภาพที่ "คอลัมน์รวมโดนตัด"
-    const wrapEl = node.querySelector('[data-hscroll="1"]');
-    const tblEl  = node.querySelector('table');
-    const prevW  = node.style.width, prevOv = wrapEl ? wrapEl.style.overflowX : '';
-    const fullW  = (tblEl && wrapEl && tblEl.scrollWidth > wrapEl.clientWidth + 1) ? tblEl.scrollWidth + 2 : 0;
-    if (fullW) { node.style.width = fullW + 'px'; wrapEl.style.overflowX = 'visible'; }
+    const wraps  = [].slice.call(node.querySelectorAll('[data-hscroll="1"]'));
+    const prevW  = node.style.width, prevOv = wraps.map(w => w.style.overflowX);
+    const fullW  = wraps.reduce((mx, w) => {
+      const t = w.querySelector('table');
+      return (t && t.scrollWidth > w.clientWidth + 1) ? Math.max(mx, t.scrollWidth + 2) : mx;
+    }, 0);
+    if (fullW) { node.style.width = fullW + 'px'; wraps.forEach(w => { w.style.overflowX = 'visible'; }); }
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     try {
       const SCALE = 2;
@@ -2890,7 +2821,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
       console.error('save summary image failed', err);
       alert('บันทึกรูปไม่สำเร็จ: ' + (err && err.message ? err.message : err));
     } finally {
-      if (fullW) { node.style.width = prevW; if (wrapEl) wrapEl.style.overflowX = prevOv || 'auto'; }
+      if (fullW) { node.style.width = prevW; wraps.forEach((w, i) => { w.style.overflowX = prevOv[i] || 'auto'; }); }
       setSaving(false);
     }
   };
@@ -2936,7 +2867,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
           </button>
           {catMode && canEdit && (
             <div style={{ flexBasis: '100%', textAlign: 'right', fontSize: fz(11), opacity: .85, marginTop: 3 }}>
-              กาง “ค่าใช้จ่ายถึงกำหนดชำระ” → เลือกหมวด → ท้ายแต่ละรายการจะมีช่องให้ย้าย (ย้ายใบเดียว หรือทุกใบของเจ้าหนี้)
+              ท้ายชื่อทุกรายการใน “รายละเอียดประเภทรายจ่าย” จะมีช่องให้เลือกหมวด (ย้ายใบเดียว หรือทุกใบของเจ้าหนี้)
             </div>
           )}
         </div>
@@ -2962,7 +2893,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
         </div>
       )}
 
-      {/* ── ตารางหลัก (ใช้คลาส .tbl .tbl-compact ของแอปเหมือนใบต้นแบบ) ── */}
+      {/* ── ตารางสรุป (ใช้คลาส .tbl .tbl-compact ของแอปเหมือนใบต้นแบบ) ── */}
       <div data-hscroll="1" style={{ overflowX: 'auto' }}>
         <table className="tbl tbl-compact" style={{ width: '100%', fontSize: fz(12.5), minWidth: sp(250 + rows.length * 130) }}>
           <thead>
@@ -2992,6 +2923,25 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
           <tbody>{body}</tbody>
         </table>
       </div>
+
+      {/* ── ตารางรายละเอียด — กางไว้เสมอ (ไม่มีลูกศรเปิด/ปิด ⇒ เซฟรูปแล้วได้ครบใบ) ── */}
+      {[
+        { k: 'in',  t: 'รายละเอียดเงินเข้า',        n: 'ชื่อผู้จ่าย / คำอธิบายรายการ', b: inBody },
+        { k: 'out', t: 'รายละเอียดประเภทรายจ่าย',   n: 'ชื่อเจ้าหนี้ / คำอธิบายรายการ', b: outBody },
+        { k: 'tf',  t: 'รายละเอียดโอนระหว่างบัญชี', n: 'จาก → ไป',                     b: tfBody },
+      ].filter(s => s.b.length > 0).map(s => (
+        <div key={s.k}>
+          <div style={{ padding: pad('14px 16px 7px'), borderTop: '1px solid ' + SK.head }}>
+            <span style={{ fontSize: fz(14), fontWeight: 800, color: SK.navy }}>{s.t}</span>
+          </div>
+          <div data-hscroll="1" style={{ overflowX: 'auto' }}>
+            <table className="tbl tbl-compact" style={{ width: '100%', fontSize: fz(12.5), minWidth: detMinW }}>
+              {detHead(s.n)}
+              <tbody>{s.b}</tbody>
+            </table>
+          </div>
+        </div>
+      ))}
 
       {/* ── ท้ายใบ (จุดตัดรูป) ── */}
       <div data-capture-end="1" style={{ padding: pad('10px 16px'),
