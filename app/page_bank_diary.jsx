@@ -2331,10 +2331,15 @@ const BD_SUM_SKIN = {
 };
 const BD_COMPANY_NAME = 'บริษัท บิ๊ก ดรีม โฮลดิง จำกัด · BIG DREAM HOLDINGS CO., LTD.';
 
-/* ความกว้างของ "ใบสรุปตอนเซฟเป็นรูป" — แนวตั้งพอดีจอมือถือ (×SCALE 2.5 → ไฟล์ ~1700px)
- * ⚠️ เป็นแค่ค่าเป้าหมาย: ถ้าตารางบีบลงไม่ถึงขนาดนี้ (เช่นหลายบัญชี) handleSaveImage
+/* ใบสรุปตอนเซฟเป็นรูป: วางเลย์เอาท์ที่ BD_SHOT_W แล้วแคปด้วย BD_SHOT_SCALE
+ *   1100 × 2 = ไฟล์กว้าง 2,200px (ผู้ใช้เลือกความกว้างไฟล์ไว้ 2026-09-14)
+ * ⚠️ "ความกว้างไฟล์" กับ "หน้าตาของใบ" เป็นคนละเรื่อง — 880×2.5 ก็ได้ 2,200px เท่ากัน
+ *    แต่เป็นคอลัมน์แคบ ๆ ที่ถูกขยายใหญ่ (เหมือนสกรีนช็อตมือถือ) · ตั้ง 1100 ให้ใกล้ความกว้าง
+ *    การ์ดบนจอ ใบที่ได้จึงหน้าตาเหมือนที่เห็นบนเว็บ ตารางโปร่ง ไม่ต้องบีบตัวอักษร
+ * ⚠️ BD_SHOT_W เป็นแค่ค่าเป้าหมาย: ถ้าตารางกว้างกว่านี้ (เช่นหลายบัญชี) handleSaveImage
  *    จะขยายกรอบตามตารางจริง ไม่งั้นคอลัมน์ขวาโดนตัดหายไปในรูปแบบไม่มีอะไรฟ้อง */
-const BD_SHOT_W = 680;
+const BD_SHOT_W     = 1100;
+const BD_SHOT_SCALE = 2;
 
 /* "SCB 1362684863" → "SCB ···4863" — ใช้กับป้ายคู่โอน (เลขบัญชีเต็มยาวจนตกบรรทัด) */
 function bdShortParty(s) {
@@ -2442,15 +2447,15 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
   const pickTf  = (scope) => flat.filter(e => e.it.kind === 'transfer' && (!scope || e.acctNo === scope));
 
   /* ── สเกลอัตโนมัติตามจำนวนคอลัมน์ (2 บัญชีไม่โหวง · 7 บัญชีไม่ล้น) ──
-   * shot = กำลังเรนเดอร์เพื่อเซฟเป็นรูป → บีบให้พอดีจอมือถือ: ย่อสเกล ซ่อนปุ่ม/ดรอปดาวน์
-   * และปลด minWidth ของตารางทุกตัว (ไม่งั้นตารางกว้างกว่ากรอบ 480 แล้วคอลัมน์ขวาโดนตัด) */
+   * shot = กำลังเรนเดอร์เพื่อเซฟเป็นรูป → ซ่อนปุ่ม/ป้ายกำกับ/ดรอปดาวน์ + ปลด minWidth ของตาราง
+   * สเกลตัวอักษรใช้ค่าเดียวกับบนจอ — กรอบ BD_SHOT_W กว้างพอแล้ว ไม่ต้องบีบ */
   const shot = saving;
-  const k   = shot ? 1.25 : Math.max(0.88, Math.min(1.24, 1.30 - rows.length * 0.06));
+  const k   = Math.max(0.88, Math.min(1.24, 1.30 - rows.length * 0.06));
   const fz  = (px) => Math.round(px * k * 10) / 10;
   const sp  = (px) => Math.round(px * k);
   const pad = (css) => String(css).replace(/(\d+(?:\.\d+)?)px/g, (m, d) => sp(parseFloat(d)) + 'px');
   const logoSz = shot ? sp(74) : 48;              // โลโก้: บนจอเท่าเดิม · ในรูปใหญ่ขึ้น
-  const inset  = sp(shot ? 12 : 18);              // ขอบซ้าย-ขวาของบล็อกตาราง
+  const inset  = sp(18);                          // ขอบซ้าย-ขวาของบล็อกตาราง
   const tblPad = '0 ' + inset + 'px';
 
   /* รวมยอดของรายการที่เหลือ (แถว "…อีก N ใบ" — ไม่ตัดข้อมูลเงียบ ๆ) */
@@ -2783,7 +2788,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
         node.style.width = W + 'px';
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       }
-      const SCALE = 2.5;
+      const SCALE = BD_SHOT_SCALE;
       const full = await window.html2canvas(node, {
         backgroundColor: '#ffffff', scale: SCALE, useCORS: true, logging: false,
         windowWidth: W + 40,
