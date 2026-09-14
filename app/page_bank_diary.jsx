@@ -3119,11 +3119,19 @@ const BankDiaryPage = ({ data: propData, setData, toast }) => {
   const pvList = React.useMemo(() => rawPvVouchers.map(bdNormPV), [rawPvVouchers]);
   // เลขที่ AP ที่ "จ่ายจริงผ่าน PV แล้ว" (PV.AP_No) — ใช้ตัด forecast ที่กลายเป็นแผนเก่าค้าง
   //   global ทุกบัญชี (จับคู่ด้วยเลข AP ล้วน) ให้เหมือนหน้า Cash Flow แม้ AP วางแผนคนละบัญชีกับที่จ่าย
+  //   ⚠️ "มี PV = จ่ายแล้ว" เป็นคำถามระดับใบ แต่ PEAK จ่ายบางส่วนได้ (EXP-20260700008: จ่าย 22,698
+  //      จาก 23,400 เหลือค้าง 702) ⇒ ต้องคายใบพวกนั้นออกจากเซ็ต ไม่งั้นแผนจ่ายของส่วนที่เหลือ
+  //      ถูกตัดทิ้งทั้งที่การ์ดบัญชี/พาเนลประมาณการยังต้องกันเงินไว้จ่าย (เกณฑ์เดียวกับหน้าเจ้าหนี้คงค้าง)
   const paidApSet = React.useMemo(() => {
     const s = new Set();
     pvList.forEach(p => pvSettledDocs(p).forEach(d => s.add(d)));   // AP_No + บิลย่อย settles[] (1 เช็คจ่ายหลายบิล)
+    (rawPayables || []).forEach(ap => {
+      if (!_apPartiallyPaid(ap)) return;
+      const v = String(ap.vchno || '').trim();
+      if (v) s.delete(v);
+    });
     return s;
-  }, [pvList]);
+  }, [pvList, rawPayables]);
   const pvByAccount = React.useMemo(() => {
     const byAcct = {};
     accounts.forEach(a => { byAcct[a.accountNo] = []; });

@@ -3202,8 +3202,9 @@ function DataPayablePage({ data, setData, toast }) {
     (data.pvVouchers || []).forEach(pv => pvSettledDocs(pv).forEach(d => s.add(d)));   // AP_No + บิลย่อย settles[]
     return s;
   }, [data.pvVouchers]);
+  //    ★ ยกเว้นใบที่จ่ายแค่บางส่วน (ไฟล์ยังรายงานยอดค้างอยู่) — ยังเป็นเจ้าหนี้คงค้างจริง
   const paidRows = dxMemo(() =>
-    rows.filter(r => { const v = String(r.vchno || '').trim(); return v && paidVchnoSet.has(v); })
+    rows.filter(r => { const v = String(r.vchno || '').trim(); return v && paidVchnoSet.has(v) && !_apPartiallyPaid(r); })
   , [rows, paidVchnoSet]);
 
   // ── ตั้งหนี้ลอยที่ยังค้างอยู่ (ของชั่วคราว — ต้องลบเมื่อใบจริงเข้าระบบ) ────────
@@ -3990,7 +3991,10 @@ function DataPayablePage({ data, setData, toast }) {
 
     detail.forEach(obj => {
       const v = String(obj.vchno || '').trim();
-      if (paidSet.has(v)) { paidImportSkipped++; return; }   // จ่ายแล้ว → ไม่นำเข้า
+      // ⚠️ paidSet เป็น "ระดับใบ" — ใบที่ PV จ่ายไปแค่บางส่วน (PEAK: จ่าย 22,698 จาก 23,400
+      //    เหลือค้าง 702) ก็อยู่ใน paidSet ด้วย ข้ามตรงนี้เมื่อไหร่ ใบหายทั้งที่ยังค้างจริง
+      //    → เชื่อไฟล์ต้นทางเมื่อมันบอกเองว่ายังเหลือค้าง
+      if (paidSet.has(v) && !_apPartiallyPaid(obj)) { paidImportSkipped++; return; }   // จ่ายครบแล้ว → ไม่นำเข้า
       importedVchno.add(v);
       const ex = existingByVchno.get(v);
       if (!ex) { added.push({ row: obj, key: v, primary: v }); return; }
@@ -4014,7 +4018,7 @@ function DataPayablePage({ data, setData, toast }) {
       const v = String(r.vchno || '').trim();
       if (!v || importedVchno.has(v)) return;
       if (isFloatingAp(r)) return;   // ตั้งหนี้ลอย = เพิ่มเอง ไม่เคยอยู่ในไฟล์ EXPRESS → ไม่ใช่ "หาย" (เคลียร์ที่แบนเนอร์ 🏷 แทน)
-      if (paidSet.has(v)) paidCut.push({ row: r, key: v, primary: v });
+      if (paidSet.has(v)) paidCut.push({ row: r, key: v, primary: v });   // ไม่อยู่ในไฟล์คงค้างแล้ว + PV จ่ายไปแล้ว ⇒ ปิดจบ (รวมใบที่เคยจ่ายบางส่วน)
       else missing.push({ row: r, key: v, primary: v });
     });
 

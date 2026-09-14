@@ -107,6 +107,20 @@ function pvSettledDocs(pv) {
   return Array.from(new Set(out.filter(Boolean)));   // unique (AP_No มักซ้ำกับ settles[0])
 }
 
+// ใบเจ้าหนี้ที่ "จ่ายไปบางส่วนแล้ว แต่ยังเหลือค้าง" ตามที่ไฟล์ต้นทางบอกเอง
+//   Amount = ยอดเต็มของใบ · Balance_Amount1 = ยอดที่ยังรอชำระ (ฐานเดียวกัน คือก่อนหัก WHT)
+//   0 < ยอดรอชำระ < ยอดเต็ม ⇒ จ่ายไปบางส่วน แต่ยังเป็นเจ้าหนี้คงค้างอยู่
+// ★ pvSettledDocs ตอบได้แค่ "ใบนี้มี PV ตัดจ่ายไหม" ซึ่งเป็นคำถามระดับใบ — PEAK จ่ายบางส่วนได้
+//   จึงต้องมีตัวนี้คู่กันเสมอ กันกฎ "มี PV = จ่ายครบ" ไปตัดใบ/แผนจ่ายที่ยังค้างจริงทิ้ง
+//   (หน้าเจ้าหนี้คงค้าง: import + แบนเนอร์ "จ่ายแล้ว" · Bank Daily: paidApSet ที่ตัด forecast)
+//   ไฟล์ EXPRESS ไม่ได้ตั้ง Balance_Amount1 ⇒ คืน false เสมอ = พฤติกรรมเดิมทุกประการ
+// ⚠️ ไม่เรียก parseNum — ชื่อนี้ถูกประกาศซ้ำใน page_invoices/page_data_extras ตัวที่โหลดทีหลังชนะ
+function _apPartiallyPaid(o) {
+  const n = v => { const x = Number(String(v == null ? '' : v).replace(/[^0-9.-]/g, '')); return isNaN(x) ? 0 : x; };
+  const full = n(o && o.Amount), left = n(o && o.Balance_Amount1);
+  return full > 0 && left > 0 && left < full - 0.005;
+}
+
 function fmtDate(iso) {
   const d = parseDateFlexible(iso);
   if (!d) return '—';
