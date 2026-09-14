@@ -2013,10 +2013,7 @@ function _ApCatBank({ bankAc, setBankAc, category, setCategory, banks }) {
       <label style={{ fontSize: 12 }}>หมวด Cashflow (ถ้ามี)</label>
       <select value={category} onChange={e => setCategory(e.target.value)} style={_AP_INP}>
         <option value="">— ใช้ค่าเดิมของรายการ —</option>
-        <option value="1">1 · ดำเนินงาน</option>
-        <option value="2">2 · โครงการ</option>
-        <option value="3">3 · การเงิน</option>
-        <option value="4">4 · เบ็ดเตล็ด+เงินเดือน</option>
+        {CF_CATS.map(c => <option key={c.code} value={String(c.code)}>{c.code} · {c.name}</option>)}
       </select>
     </div>
   </>);
@@ -4336,7 +4333,7 @@ function DataPayablePage({ data, setData, toast }) {
                           }));
                           toast && toast('อัปเดตหมวด CF แล้ว');
                         }}
-                        title="เลือกหมวดสำหรับ Cashflow page (1=ดำเนินงาน 2=โครงการ 3=การเงิน 4=เบ็ดเตล็ด/เงินเดือน)"
+                        title={'เลือกหมวดรายจ่าย — ' + CF_CATS.map(c => c.code + '=' + c.name).join(' · ')}
                         style={{
                           fontSize: 11, padding: '2px 6px', borderRadius: 5,
                           border: '1px solid var(--line)', background: 'var(--panel)',
@@ -4344,10 +4341,7 @@ function DataPayablePage({ data, setData, toast }) {
                           color: row.cf_category ? 'var(--ink-800)' : 'var(--ink-400)',
                         }}>
                         <option value="">Auto</option>
-                        <option value="1">1 · ดำเนินงาน</option>
-                        <option value="2">2 · โครงการ</option>
-                        <option value="3">3 · การเงิน</option>
-                        <option value="4">4 · เบ็ดเตล็ด+เงินเดือน</option>
+                        {CF_CATS.map(c => <option key={c.code} value={String(c.code)}>{c.code} · {c.name}</option>)}
                       </select>
                     </td>
                     <td style={{ ...vt, whiteSpace: 'nowrap', color: dueColor }}>

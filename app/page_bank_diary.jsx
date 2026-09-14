@@ -133,17 +133,9 @@ const BD_PERIODS = [
   { key: 'all',           label: 'ทั้งหมด' },
 ];
 
-/* หมวด Cash Flow (cf_category / forecast.CATEGORY) */
-const BD_CF_CATEGORIES = [
-  { code: '1', label: 'ค่าใช้จ่ายดำเนินงานรายสัปดาห์' },
-  { code: '2', label: 'ค่าใช้จ่ายเกี่ยวกับโครงการและงานติดตั้ง' },
-  { code: '3', label: 'ต้นทุนทางการเงินและดอกเบี้ย' },
-  { code: '4', label: 'ค่าใช้จ่ายเบ็ดเตล็ดและเงินเดือน' },
-];
-function bdCatLabel(code) {
-  const c = BD_CF_CATEGORIES.find(x => x.code === String(code));
-  return c ? c.label : '';
-}
+/* หมวด Cash Flow (cf_category / forecast.CATEGORY) = ผังกลาง 8 หมวดใน shared_bits.jsx */
+const BD_CF_CATEGORIES = CF_CATS.map(c => ({ code: String(c.code), label: c.name }));
+function bdCatLabel(code) { return cfCatLabel(code); }
 
 /* Normalize forecastEntries → ใช้ยอดจริง (ACTUAL_AMOUNT) อัตโนมัติเมื่อมี (ตัด PV แล้ว) */
 function bdNormForecast(e) {
@@ -2176,47 +2168,12 @@ function BDArPanel({ arList, bankAccounts, today, onBulkPlan, onBulkReschedule, 
  *      — ห้ามคำนวณเองซ้ำ ไม่งั้นยอดบน/ล่างไม่ตรงกัน
  * ══════════════════════════════════════════════════════════════════════════ */
 
-/* ── ผังหมวดค่าใช้จ่ายของใบสรุปนี้ (8 หมวด) ────────────────────────────────
- * ⚠️ คนละผังกับ "หมวด 1-4" ของหน้า Cash Flow / Weekly Cashflow ที่อยู่ใน
- *    shared_bits.jsx (ดำเนินงาน/โครงการ/การเงิน/เบ็ดเตล็ด) — ตั้งใจให้ต่างกัน
- *    ผังนี้เป็นศัพท์ที่ฝ่ายบัญชีใช้อ่านใบสรุปรอบจ่าย ห้ามเอาเลขไปเทียบข้ามผัง
- *    (2026-09-14 เปลี่ยนจาก 4 → 8 หมวดตามที่ผู้ใช้กำหนด · ค่า override เดิมที่เก็บ
- *     ไว้เป็นเลข 1-4 จะถูกอ่านตามผังใหม่ ถ้ามีของเก่าค้างให้กด "⇄ จัดหมวด" ตั้งใหม่) */
-const BD_CAT_ORDER = [1, 2, 3, 4, 5, 6, 7, 8];
-const BD_CAT_NAME  = {
-  1: 'เจ้าหนี้การค้า',
-  2: 'เงินมัดจำ/เงินเบิกล่วงหน้า',
-  3: 'ค่าใช้จ่ายประจำ',
-  4: 'เงินสำรองจ่าย',
-  5: 'เงินสดย่อย',
-  6: 'เงินกู้ยืมและดอกเบี้ย',
-  7: 'เงินเดือนและค่าที่ปรึกษา',
-  8: 'ประมาณการเงินสำรองจ่าย',
-};
-const BD_CAT_HINT  = {
-  1: 'ค่าสินค้า/บริการตามใบแจ้งหนี้เจ้าหนี้',
-  2: 'เงินมัดจำ เงินประกัน และเงินเบิกล่วงหน้า',
-  3: 'ค่าใช้จ่ายที่มีทุกงวด เช่น ค่าเช่า สาธารณูปโภค ภาษี ประกันสังคม',
-  4: 'เงินที่สำรอง/ทดรองจ่ายไปก่อนแล้วมาเคลียร์',
-  5: 'เงินสดย่อยในมือ',
-  6: 'เงินกู้ยืม ลีสซิ่ง และดอกเบี้ย',
-  7: 'เงินเดือน ค่าจ้าง และค่าที่ปรึกษา',
-  8: 'ประมาณการเงินสำรองจ่ายที่ยังไม่มีเอกสาร',
-};
-const BD_CAT_FALLBACK = 1;   // ไม่เข้ากฎไหนเลย = เจ้าหนี้การค้า (เอกสารส่วนใหญ่เป็นแบบนี้)
-
-/* กฎจับหมวดจากข้อความ — เรียงจาก "เฉพาะเจาะจง" ไป "กว้าง" ห้ามสลับลำดับ
- * ⚠️ หมวด 8 ต้องมาก่อนหมวด 4 เพราะ "ประมาณการเงินสำรองจ่าย" มีคำว่า "สำรองจ่าย" อยู่ด้วย
- * ⚠️ หมวด 3 จับ "กองทุนสำรองเลี้ยงชีพ" ได้เพราะหมวด 4 บังคับว่าต้องมีคำว่า "สำรองจ่าย" เท่านั้น */
-const BD_CAT_RULES = [
-  { cat: 8, re: /ประมาณการ[^]{0,12}สำรองจ่าย|สำรองจ่าย[^]{0,12}ประมาณการ/ },
-  { cat: 5, re: /เงินสดย่อย|petty\s*cash/i },
-  { cat: 4, re: /สำรองจ่าย|ทดรองจ่าย|เคลียร์เงินสำรอง|reimburse/i },
-  { cat: 2, re: /มัดจำ|เงินประกัน|ค้ำประกัน|ล่วงหน้า|advance|deposit|retention/i },
-  { cat: 6, re: /เงินกู้|เงินยืม|ดอกเบี้ย|เงินต้น|ลีสซิ่ง|ลิสซิ่ง|ลีซ ?อิท|เช่าซื้อ|แคปปิตอล|loan|interest|leasing|capital/i },
-  { cat: 7, re: /เงินเดือน|ค่าจ้าง|ค่าแรง|โบนัส|ค่าตอบแทน|ที่ปรึกษา|payroll|salary|consult|advisor/i },
-  { cat: 3, re: /ค่าเช่า|ค่าน้ำ|ค่าไฟ|ค่าประปา|ค่าโทรศัพท์|อินเทอร์เน็ต|internet|ค่าส่วนกลาง|ค่าธรรมเนียม|ประกันสังคม|สรรพากร|ภ\.? ?ง\.? ?ด|ภ\.? ?พ\.? ?30|กองทุนสำรองเลี้ยงชีพ|ประกันภัย|ค่าบริการรายเดือน|rent|utilit/i },
-];
+/* หมวดค่าใช้จ่ายของใบสรุป = ผังกลาง 8 หมวดใน shared_bits.jsx (CF_CATS)
+ * ⚠️ index.html ต้องโหลด shared_bits.jsx ก่อนไฟล์นี้ ไม่งั้น const ข้างล่างเป็น undefined
+ *    เก็บชื่อเดิม BD_CAT_* ไว้เป็น alias เพื่อไม่ต้องไล่แก้ทั้งไฟล์ */
+const BD_CAT_ORDER = CF_CAT_ORDER;
+const BD_CAT_NAME  = CF_CAT_NAME;
+const BD_CAT_HINT  = CF_CAT_HINT;
 
 /* คีย์ override ของหน้านี้ (sync ทั้งทีมผ่าน data.manualOverrides)
  *   bd.act.<docKey>  = ย้ายเฉพาะเอกสารใบนั้น (เจาะจงสุด ชนะทุกอย่าง)
@@ -2249,8 +2206,7 @@ function bdDocKey(it) {
 /* อ่านค่า override หมวด (คืน 0 = ไม่ได้ตั้งไว้) */
 function bdOvCat(key) {
   if (!key || typeof WTPOverride === 'undefined') return 0;
-  const n = parseInt(WTPOverride.resolve(key, 0), 10);
-  return (n >= 1 && n <= BD_CAT_ORDER.length) ? n : 0;
+  return cfCatValid(WTPOverride.resolve(key, 0));
 }
 
 /* แถวดิบของ PV (รองรับทั้งใบเดี่ยวและกลุ่มหลาย AP ใน PV ใบเดียว) */
@@ -2263,12 +2219,11 @@ function bdPvRaw(it) {
 /* จัดหมวดรายการ 1 บรรทัด — ลำดับตัดสิน (ห้ามสลับ):
  *   1. override รายใบ  bd.act.<docKey>
  *   2. override รายเจ้าหนี้  bd.actv.<vendor>
- *   3. ตัวจัดหมวดของระบบ / ตาราง vendor ของ Cash Flow บอกว่าเป็น "ต้นทุนทางการเงิน" → 6
- *   4. กฎคำสำคัญ BD_CAT_RULES (ไล่ตามลำดับในตาราง)
- *   5. ไม่เข้าเงื่อนไขไหนเลย → BD_CAT_FALLBACK (เจ้าหนี้การค้า)
- * ⚠️ ผังของระบบ (1-4) กับผังของใบสรุปนี้ (1-8) เป็นคนละชุด — ห้ามคืนค่า sys ตรง ๆ */
+ *   3. ตัวจัดหมวดของระบบ (categorizeForecastEntry / resolvePvCategory) = ผังเดียวกันแล้ว
+ *   4. ตาราง "เจ้าหนี้ → หมวด" (cfVendorCat)
+ *   5. กฎคำสำคัญ cfCatFromText → ไม่เข้าเงื่อนไขไหนเลยได้ CF_CAT_FALLBACK */
 function bdRowCat(it, apByNo) {
-  if (!it) return 1;
+  if (!it) return CF_CAT_FALLBACK;
   const dk = bdDocKey(it);
   const ovDoc = dk ? bdOvCat(BD_ACT_KEY(dk)) : 0;
   if (ovDoc) return ovDoc;
@@ -2289,16 +2244,13 @@ function bdRowCat(it, apByNo) {
       sys = resolvePvCategory(pv, ap);
     }
   } catch (_) { sys = 0; }
-  /* ผังของระบบเป็นคนละชุดกับ 8 หมวดนี้ — แปลได้ตัวเดียวคือ "หมวด 3 = ต้นทุนทางการเงิน"
-     ซึ่งตรงกับ "เงินกู้ยืมและดอกเบี้ย" พอดี ที่เหลือปล่อยให้กฎคำสำคัญตัดสิน */
-  if (sys === 3) return 6;
-  if (typeof cfVendorCat === 'function' && cfVendorCat(vend || it.title || '') === 3) return 6;
-
-  const text = [vend, it.title, it.sub, it.remark].filter(Boolean).join(' ');
-  for (let i = 0; i < BD_CAT_RULES.length; i++) {
-    if (BD_CAT_RULES[i].re.test(text)) return BD_CAT_RULES[i].cat;
-  }
-  return BD_CAT_FALLBACK;
+  /* ผังเดียวกับหน้าอื่นแล้ว (CF_CATS) — รับค่ามาใช้ได้ตรง ๆ
+     ⇒ หมวดที่เลือกเองไว้ที่หน้า "เจ้าหนี้คงค้าง" มีผลถึงใบสรุปนี้ด้วย
+     ⚠️ ตัวจัดหมวดจะคืน 0 เมื่อยังไม่ชัด — ตรงนั้นค่อยลองด้วยข้อความชุดเต็มของแถวนี้
+        (ชื่อเจ้าหนี้ + คำอธิบาย + เลขเอกสาร + หมายเหตุ) ซึ่งมีรายละเอียดมากกว่า */
+  if (cfCatValid(sys)) return sys;
+  if (typeof cfVendorCat === 'function') { const vc = cfVendorCat(vend || it.title || ''); if (vc) return vc; }
+  return cfCatFromText([vend, it.title, it.sub, it.remark].filter(Boolean).join(' ')) || CF_CAT_FALLBACK;
 }
 
 /* re-render ทุกครั้งที่มีการเขียน override — ต้องใส่ค่านี้เข้า deps ของ useMemo
@@ -2328,6 +2280,15 @@ function bdSumLoadPick() {
 }
 function bdSumSavePick(list) {
   try { localStorage.setItem(BD_SUM_PICK_KEY, JSON.stringify(list || [])); } catch (_) {}
+}
+
+/* กาง/ย่อตารางรายละเอียด — ค่าตั้งต้น = กาง (ย่อแล้วกด "บันทึกรูป" จะได้ใบสรุปสั้น ๆ) */
+const BD_SUM_DET_KEY = 'bdh-bd-sum-detail-v1';
+function bdSumLoadDet() {
+  try { return localStorage.getItem(BD_SUM_DET_KEY) !== '0'; } catch (_) { return true; }
+}
+function bdSumSaveDet(on) {
+  try { localStorage.setItem(BD_SUM_DET_KEY, on ? '1' : '0'); } catch (_) {}
 }
 
 /* จัดกลุ่มขาโอนเป็น "รายการโอน" เดียว (2 ขาของ transferRef เดียวกัน) */
@@ -2407,6 +2368,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
   const ovTick = bdUseOverrideTick();                     // ★ ต้องอยู่ใน deps ของ rows ไม่งั้นย้ายหมวดแล้วยอดไม่ขยับ
   const [pick, setPick]           = React.useState(bdSumLoadPick);
   const [pickOpen, setPickOpen]   = React.useState(false);
+  const [showDet, setShowDet]     = React.useState(bdSumLoadDet);
   const [catMode, setCatMode]     = React.useState(false);
   const [saving, setSaving]       = React.useState(false);
   const cardRef = React.useRef(null);
@@ -2854,13 +2816,17 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
         </div>
         <div data-no-capture="1" style={{ flexBasis: '100%', display: 'flex', gap: 7, justifyContent: 'flex-end', marginTop: 2, flexWrap: 'wrap' }}>
           {canEdit && (
-            <button onClick={() => setCatMode(v => !v)} style={hdBtn(catMode)}
+            <button onClick={() => { const nx = !catMode; setCatMode(nx); if (nx && !showDet) { setShowDet(true); bdSumSaveDet(true); } }} style={hdBtn(catMode)}
               title="เปิดเมื่อจะย้ายรายการไปหมวดอื่น — ปกติซ่อนไว้ให้ตารางสะอาด">
               {catMode ? '✓ กำลังจัดหมวด' : '⇄ จัดหมวด'}
             </button>
           )}
           <button onClick={() => setPickOpen(o => !o)} style={hdBtn(pickOpen)} title="เลือกบัญชีที่จะเป็นคอลัมน์">
             ⚙ เลือกบัญชี ({rows.length}/{allNos.length})
+          </button>
+          <button onClick={() => { const v = !showDet; setShowDet(v); bdSumSaveDet(v); }} style={hdBtn(!showDet)}
+            title="ย่อ = เหลือเฉพาะตารางสรุป · กดบันทึกรูปตอนย่อไว้ จะได้ใบสั้น ๆ ส่งผู้บริหาร">
+            {showDet ? '▾ แบบเต็ม' : '▸ แบบย่อ'}
           </button>
           <button onClick={handleSaveImage} disabled={saving} style={hdBtn(false, saving)} title="บันทึกใบสรุปนี้เป็นรูป (PNG)">
             {saving ? 'กำลังบันทึก…' : '📷 บันทึกรูป'}
@@ -2929,7 +2895,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
         { k: 'in',  t: 'รายละเอียดเงินเข้า',        n: 'ชื่อผู้จ่าย / คำอธิบายรายการ', b: inBody },
         { k: 'out', t: 'รายละเอียดประเภทรายจ่าย',   n: 'ชื่อเจ้าหนี้ / คำอธิบายรายการ', b: outBody },
         { k: 'tf',  t: 'รายละเอียดโอนระหว่างบัญชี', n: 'จาก → ไป',                     b: tfBody },
-      ].filter(s => s.b.length > 0).map(s => (
+      ].filter(s => showDet && s.b.length > 0).map(s => (
         <div key={s.k}>
           <div style={{ padding: pad('14px 16px 7px'), borderTop: '1px solid ' + SK.head }}>
             <span style={{ fontSize: fz(14), fontWeight: 800, color: SK.navy }}>{s.t}</span>

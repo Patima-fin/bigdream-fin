@@ -68,15 +68,60 @@ function HpBankLogo({ name }) {
   return <div className="hp-bank-logo hp-bank-logo--fb" style={{ background: bg }}>{initials}</div>;
 }
 
-// ── หมวดรายจ่าย 1-4 (ใช้ในหน้า Bank Daily / DATA PV / DATA AP) ────────────────
-//   1 = ดำเนินงาน · 2 = โครงการ · 3 = การเงิน/ดอกเบี้ย · 4 = เบ็ดเตล็ด/เงินเดือน
-// ── Per-PV manual category override (cf.pvCat.<PL_PV_No> = 1-4) ──────────────
+// ── ผังหมวดรายจ่ายกลาง 8 หมวด (ใช้ทุกหน้า: Bank Daily · DATA PV · DATA AP) ────
+// 2026-09-14 เปลี่ยนจาก 4 หมวดเดิม (ดำเนินงาน/โครงการ/การเงิน/เบ็ดเตล็ด) เป็นชุดนี้
+// ⚠️ นี่คือ "แหล่งความจริงที่เดียว" — หน้าไหนจะโชว์ตัวเลือกหมวด ให้ map จาก CF_CATS
+//    ห้าม hardcode <option> รายหมวดซ้ำอีก ไม่งั้นแต่ละหน้าจะเพี้ยนไปคนละทาง
+// ⚠️ ค่าที่เคยบันทึกไว้เป็นเลข 1-4 (payables.cf_category / forecastEntries.CATEGORY /
+//    override cf.pvCat.*) จะถูกอ่านตามผังใหม่ = ความหมายเปลี่ยน — ไม่ได้ทำตัวแปลงให้
+//    (ของเดิม 3 "การเงิน" ควรเป็น 6 · 4 "เบ็ดเตล็ด/เงินเดือน" ควรเป็น 7 → ไล่เลือกใหม่เอง)
+const CF_CATS = [
+  { code: 1, name: 'เจ้าหนี้การค้า',              hint: 'ค่าสินค้า/บริการตามใบแจ้งหนี้เจ้าหนี้' },
+  { code: 2, name: 'เงินมัดจำ/เงินเบิกล่วงหน้า',  hint: 'เงินมัดจำ เงินประกัน และเงินเบิกล่วงหน้า' },
+  { code: 3, name: 'ค่าใช้จ่ายประจำ',             hint: 'ค่าใช้จ่ายที่มีทุกงวด เช่น ค่าเช่า สาธารณูปโภค ภาษี ประกันสังคม' },
+  { code: 4, name: 'เงินสำรองจ่าย',               hint: 'เงินที่สำรอง/ทดรองจ่ายไปก่อนแล้วมาเคลียร์' },
+  { code: 5, name: 'เงินสดย่อย',                  hint: 'เงินสดย่อยในมือ' },
+  { code: 6, name: 'เงินกู้ยืมและดอกเบี้ย',        hint: 'เงินกู้ยืม ลีสซิ่ง และดอกเบี้ย' },
+  { code: 7, name: 'เงินเดือนและค่าที่ปรึกษา',     hint: 'เงินเดือน ค่าจ้าง และค่าที่ปรึกษา' },
+  { code: 8, name: 'ประมาณการเงินสำรองจ่าย',      hint: 'ประมาณการเงินสำรองจ่ายที่ยังไม่มีเอกสาร' },
+];
+const CF_CAT_ORDER    = CF_CATS.map(c => c.code);
+const CF_CAT_NAME     = CF_CATS.reduce((m, c) => { m[c.code] = c.name; return m; }, {});
+const CF_CAT_HINT     = CF_CATS.reduce((m, c) => { m[c.code] = c.hint; return m; }, {});
+const CF_CAT_MAX      = CF_CATS.length;
+const CF_CAT_FALLBACK = 1;                 // ไม่เข้ากฎไหนเลย = เจ้าหนี้การค้า (เอกสารส่วนใหญ่เป็นแบบนี้)
+function cfCatLabel(code) { return CF_CAT_NAME[parseInt(code, 10)] || ''; }
+function cfCatValid(code) { const n = parseInt(code, 10); return (n >= 1 && n <= CF_CAT_MAX) ? n : 0; }
+
+// กฎจับหมวดจากข้อความ — เรียงจาก "เฉพาะเจาะจง" ไป "กว้าง" ห้ามสลับลำดับ
+// ⚠️ หมวด 8 ต้องมาก่อนหมวด 4 เพราะ "ประมาณการเงินสำรองจ่าย" มีคำว่า "สำรองจ่าย" อยู่ด้วย
+// ⚠️ หมวด 3 จับ "กองทุนสำรองเลี้ยงชีพ" ได้ เพราะหมวด 4 บังคับว่าต้องมีคำว่า "สำรองจ่าย" เท่านั้น
+const CF_CAT_RULES = [
+  { cat: 8, re: /ประมาณการ[^]{0,12}สำรองจ่าย|สำรองจ่าย[^]{0,12}ประมาณการ/ },
+  { cat: 5, re: /เงินสดย่อย|petty\s*cash/i },
+  { cat: 4, re: /สำรองจ่าย|ทดรองจ่าย|เคลียร์เงินสำรอง|reimburse/i },
+  { cat: 2, re: /มัดจำ|เงินประกัน|ค้ำประกัน|ล่วงหน้า|advance|deposit|retention/i },
+  { cat: 6, re: /เงินกู้|เงินยืม|ดอกเบี้ย|เงินต้น|ลีสซิ่ง|ลิสซิ่ง|ลีซ ?อิท|เช่าซื้อ|แคปปิตอล|loan|interest|leasing|capital/i },
+  { cat: 7, re: /เงินเดือน|ค่าจ้าง|ค่าแรง|โบนัส|ค่าตอบแทน|ที่ปรึกษา|payroll|salary|consult|advisor/i },
+  { cat: 3, re: /ค่าเช่า|ค่าน้ำ|ค่าไฟ|ค่าประปา|ค่าโทรศัพท์|อินเทอร์เน็ต|internet|ค่าส่วนกลาง|ค่าธรรมเนียม|ประกันสังคม|สรรพากร|ภ\.? ?ง\.? ?ด|ภ\.? ?พ\.? ?30|กองทุนสำรองเลี้ยงชีพ|ประกันภัย|ค่าบริการรายเดือน|rent|utilit/i },
+];
+// ข้อความ (ชื่อเจ้าหนี้ + คำอธิบาย + หมายเหตุ) → หมวด · ไม่เข้ากฎไหนเลยคืน 0
+// ⚠️ ต้องคืน 0 ไม่ใช่ CF_CAT_FALLBACK — ผู้เรียกจะได้รู้ว่า "ยังไม่ชัด" แล้วลองข้อความชุดอื่นต่อได้
+//    (เช่น bdRowCat มีทั้งชื่อเจ้าหนี้และหมายเหตุของ AP ซึ่งดีกว่าคำอธิบายใน forecast อย่างเดียว)
+//    ใครต้องการคำตอบสุดท้ายให้ปิดท้ายเองด้วย || CF_CAT_FALLBACK
+function cfCatFromText(text) {
+  const t = String(text || '');
+  for (let i = 0; i < CF_CAT_RULES.length; i++) { if (CF_CAT_RULES[i].re.test(t)) return CF_CAT_RULES[i].cat; }
+  return 0;
+}
+
+// ── Per-PV manual category override (cf.pvCat.<PL_PV_No> = 1-8) ──────────────
 const cfPvCatKey = (pvNo) => 'cf.pvCat.' + String(pvNo || '').trim();
 // ── Vendor → หมวด mapping (เจ้าหนี้กลุ่มการเงิน/ลีสซิ่ง → หมวด 3) · แก้รายชื่อใน localStorage ได้
-const CF_VENDOR_CAT_LS_KEY = 'bdh-cf-vendor-cat';
+const CF_VENDOR_CAT_LS_KEY = 'bdh-cf-vendor-cat-v2';
 const CF_VENDOR_CAT_DEFAULTS = [
-  { frag: 'ลีซ อิท', cat: 3 }, { frag: 'ลีสซิ่ง', cat: 3 }, { frag: 'ลิสซิ่ง', cat: 3 },
-  { frag: 'แคปปิตอล', cat: 3 }, { frag: 'capital', cat: 3 }, { frag: 'leasing', cat: 3 },
+  { frag: 'ลีซ อิท', cat: 6 }, { frag: 'ลีสซิ่ง', cat: 6 }, { frag: 'ลิสซิ่ง', cat: 6 },
+  { frag: 'แคปปิตอล', cat: 6 }, { frag: 'capital', cat: 6 }, { frag: 'leasing', cat: 6 },
 ];
 let _cfVendorCatCache = null;
 function cfLoadVendorCat() {
@@ -92,56 +137,36 @@ function cfVendorCat(name) {
   const list = cfLoadVendorCat();
   for (let i = 0; i < list.length; i++) {
     const e = list[i];
-    if (e && e.frag && n.includes(String(e.frag).toLowerCase())) { const c = parseInt(e.cat, 10); if (c >= 1 && c <= 4) return c; }
+    if (e && e.frag && n.includes(String(e.frag).toLowerCase())) { const c = cfCatValid(e.cat); if (c) return c; }
   }
   return 0;
 }
+// ลำดับตัดสิน: หมวดที่เลือกเอง > ตาราง vendor > กฎคำสำคัญ · ไม่ชัดเลยคืน 0 (ให้ผู้เรียกตัดสิน)
 function categorizePayable(ap) {
-  // Layer 1: manual override
-  const override = parseInt(ap.cf_category || '0', 10);
-  if (override >= 1 && override <= 4) return override;
-  // Layer 1.5: vendor → หมวด mapping (เจ้าหนี้กลุ่มการเงิน/ลีสซิ่ง เช่น ลีซ อิท → หมวด 3)
+  const override = cfCatValid(ap.cf_category);
+  if (override) return override;
   const vc = cfVendorCat(ap.cust_name || ap.vendor);
   if (vc) return vc;
-  // Layer 2: finance-cost keyword match (cat 3)
-  const text = (
-    String(ap.cust_name || '') + ' ' +
-    String(ap.remark || '') + ' ' +
-    String(ap.docno || '') + ' ' +
-    String(ap.refno || '') + ' ' +
-    String(ap.vendor_group || '')
-  ).toLowerCase();
-  if (/ดอกเบี้ย|interest|ค่าธรรมเนียม|bank fee|wht|withhold|หัก ?ณ ?ที่จ่าย|ค่าบริการ ?ธนาคาร/i.test(text)) {
-    return 3;
-  }
-  // Layer 3: project (cat 2)
-  if (ap.jobcode || ap.jobname) return 2;
-  // Layer 4: default — operating
-  return 1;
+  return cfCatFromText([ap.cust_name, ap.vendor, ap.remark, ap.docno, ap.refno, ap.vendor_group]
+    .filter(Boolean).join(' '));
 }
-// จัดหมวดรายการจ่ายจริง (PV): override ราย PV > AP ที่ผูก > vendor mapping/keyword บนชื่อผู้รับเงิน
+// จัดหมวดรายการจ่ายจริง (PV): override ราย PV > AP ที่ผูก > vendor mapping/กฎคำสำคัญ
 function resolvePvCategory(pv, ap) {
   const pvNo = pv.PL_PV_No || '';
   if (pvNo && typeof WTPOverride !== 'undefined' && WTPOverride.has && WTPOverride.has(cfPvCatKey(pvNo))) {
-    const ov = parseInt(WTPOverride.resolve(cfPvCatKey(pvNo), 0), 10);
-    if (ov >= 1 && ov <= 4) return ov;
+    const ov = cfCatValid(WTPOverride.resolve(cfPvCatKey(pvNo), 0));
+    if (ov) return ov;
   }
   if (ap) return categorizePayable(ap);
   const vc = cfVendorCat(pv.Payee);
   if (vc) return vc;
-  const text = (String(pv.Payee || '') + ' ' + String(pv.cc_remark || pv.Remark || '')).toLowerCase();
-  if (/ดอกเบี้ย|interest|ค่าธรรมเนียม|bank fee|wht|leasing|ลีสซิ่ง/i.test(text)) return 3;
-  return 1;
+  return cfCatFromText(String(pv.Payee || '') + ' ' + String(pv.cc_remark || pv.Remark || ''));
 }
 function categorizeForecastEntry(fe) {
-  // Explicit CATEGORY field wins (1-4)
-  const cat = parseInt(fe.CATEGORY || fe.category || '0', 10);
-  if (cat >= 1 && cat <= 4) return cat;
-  // Fallback heuristics on description
-  const desc = String(fe.DESCRIPTION || fe.description || '').toLowerCase();
-  if (/เงินเดือน|salary|payroll|เบ็ดเตล็ด|misc|petty|รับรอง/i.test(desc)) return 4;
-  if (/ดอกเบี้ย|interest|ค่าธรรมเนียม|bank fee/i.test(desc))                return 3;
-  return 1;
+  const cat = cfCatValid(fe.CATEGORY || fe.category);
+  if (cat) return cat;
+  return cfCatFromText(String(fe.DESCRIPTION || fe.description || '') + ' ' +
+                       String(fe.NOTE || fe.note || fe.remark || ''));
 }
 // เอกสารเจ้าหนี้ที่ถูก PV ตัดจ่ายแล้ว (AP_No + บิลย่อยใน settles[]) — pvSettledDocs อยู่ใน components.jsx
 function buildPaidVchnoSet(pvVouchers) {
