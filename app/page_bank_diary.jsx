@@ -2330,10 +2330,10 @@ const BD_SUM_SKIN = {
 };
 const BD_COMPANY_NAME = 'บริษัท บิ๊ก ดรีม โฮลดิง จำกัด · BIG DREAM HOLDINGS CO., LTD.';
 
-/* ความกว้างของ "ใบสรุปตอนเซฟเป็นรูป" — ตั้งให้พอดีจอมือถือ (×SCALE 2.5 → ไฟล์ ~1200px)
+/* ความกว้างของ "ใบสรุปตอนเซฟเป็นรูป" — แนวตั้งพอดีจอมือถือ (×SCALE 2.5 → ไฟล์ ~1700px)
  * ⚠️ เป็นแค่ค่าเป้าหมาย: ถ้าตารางบีบลงไม่ถึงขนาดนี้ (เช่นหลายบัญชี) handleSaveImage
  *    จะขยายกรอบตามตารางจริง ไม่งั้นคอลัมน์ขวาโดนตัดหายไปในรูปแบบไม่มีอะไรฟ้อง */
-const BD_SHOT_W = 480;
+const BD_SHOT_W = 680;
 
 /* "SCB 1362684863" → "SCB ···4863" — ใช้กับป้ายคู่โอน (เลขบัญชีเต็มยาวจนตกบรรทัด) */
 function bdShortParty(s) {
@@ -2444,11 +2444,12 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
    * shot = กำลังเรนเดอร์เพื่อเซฟเป็นรูป → บีบให้พอดีจอมือถือ: ย่อสเกล ซ่อนปุ่ม/ดรอปดาวน์
    * และปลด minWidth ของตารางทุกตัว (ไม่งั้นตารางกว้างกว่ากรอบ 480 แล้วคอลัมน์ขวาโดนตัด) */
   const shot = saving;
-  const k   = shot ? 0.86 : Math.max(0.88, Math.min(1.24, 1.30 - rows.length * 0.06));
+  const k   = shot ? 1.25 : Math.max(0.88, Math.min(1.24, 1.30 - rows.length * 0.06));
   const fz  = (px) => Math.round(px * k * 10) / 10;
   const sp  = (px) => Math.round(px * k);
   const pad = (css) => String(css).replace(/(\d+(?:\.\d+)?)px/g, (m, d) => sp(parseFloat(d)) + 'px');
-  const inset  = sp(shot ? 10 : 18);              // ขอบซ้าย-ขวาของบล็อกตาราง
+  const logoSz = shot ? sp(74) : 48;              // โลโก้: บนจอเท่าเดิม · ในรูปใหญ่ขึ้น
+  const inset  = sp(shot ? 12 : 18);              // ขอบซ้าย-ขวาของบล็อกตาราง
   const tblPad = '0 ' + inset + 'px';
 
   /* รวมยอดของรายการที่เหลือ (แถว "…อีก N ใบ" — ไม่ตัดข้อมูลเงียบ ๆ) */
@@ -2825,9 +2826,11 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
       {/* หัวรายงาน — แถบเขียวแบรนด์ BIO (ต้นแบบเป็นน้ำเงิน) */}
       <div style={{ padding: pad('16px 20px 14px'), display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap',
         background: SK.headGrad, color: '#fff' }}>
-        <div style={{ width: 48, height: 48, borderRadius: 11, background: '#fff', display: 'grid', placeItems: 'center',
-          flex: 'none', overflow: 'hidden', padding: 5, boxShadow: '0 2px 8px rgba(0,0,0,.18)' }}>
-          {/* กล่อง 48×48 → ใช้สัญลักษณ์ ไม่ใช่โลโก้เต็มที่เป็นแนวนอน */}
+        <div style={{ width: logoSz, height: logoSz, borderRadius: Math.round(logoSz * 0.23), background: '#fff',
+          display: 'grid', placeItems: 'center', flex: 'none', overflow: 'hidden',
+          padding: Math.round(logoSz * 0.09), boxShadow: '0 2px 8px rgba(0,0,0,.18)' }}>
+          {/* กล่องจัตุรัส → ใช้สัญลักษณ์ (bigdream_mark) ไม่ใช่โลโก้เต็มที่เป็นแนวนอน
+              บนจอคงขนาดเดิม 48 (กระทัดรัด) · ในรูปขยายให้สมกับหัวใบที่ส่งให้คนอื่นดู */}
           <img src="bigdream_mark.png" alt="BIG DREAM HOLDINGS" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
         </div>
         <div style={{ minWidth: 0 }}>
@@ -2838,10 +2841,9 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
         <div style={{ marginLeft: 'auto', textAlign: 'right', flex: 'none' }}>
           <div style={{ fontSize: fz(11.5), opacity: .78 }}>รอบจ่าย</div>
           <div style={{ fontSize: fz(21), fontWeight: 800, lineHeight: 1.3, margin: '1px 0 2px' }}>{periodLabel}</div>
-          <div style={{ fontSize: fz(11.5), opacity: .78 }}>{fmtDateLong(today)}</div>
-          {periodEnd < '9999' && (
-            <div style={{ fontSize: fz(10.5), opacity: .7 }}>ถึง {fmtDate(periodEnd)}</div>
-          )}
+          <div style={{ fontSize: fz(11.5), opacity: .78, whiteSpace: 'nowrap' }}>
+            {fmtDateLong(today)}{periodEnd < '9999' ? ' · ถึง ' + fmtDate(periodEnd) : ''}
+          </div>
         </div>
         {!shot && <div data-no-capture="1" style={{ flexBasis: '100%', display: 'flex', gap: 7, justifyContent: 'flex-end', marginTop: 2, flexWrap: 'wrap' }}>
           {canEdit && (
