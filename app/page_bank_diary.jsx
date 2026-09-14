@@ -2330,6 +2330,11 @@ const BD_SUM_SKIN = {
 };
 const BD_COMPANY_NAME = 'บริษัท บิ๊ก ดรีม โฮลดิง จำกัด · BIG DREAM HOLDINGS CO., LTD.';
 
+/* ความกว้างของ "ใบสรุปตอนเซฟเป็นรูป" — ตั้งให้พอดีจอมือถือ (×SCALE 2.5 → ไฟล์ ~1200px)
+ * ⚠️ เป็นแค่ค่าเป้าหมาย: ถ้าตารางบีบลงไม่ถึงขนาดนี้ (เช่นหลายบัญชี) handleSaveImage
+ *    จะขยายกรอบตามตารางจริง ไม่งั้นคอลัมน์ขวาโดนตัดหายไปในรูปแบบไม่มีอะไรฟ้อง */
+const BD_SHOT_W = 480;
+
 /* "SCB 1362684863" → "SCB ···4863" — ใช้กับป้ายคู่โอน (เลขบัญชีเต็มยาวจนตกบรรทัด) */
 function bdShortParty(s) {
   return String(s || '').replace(/\d{5,}/g, (m) => '···' + m.slice(-4)).replace(/\s+/g, ' ').trim();
@@ -2435,11 +2440,16 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
   const pickOut = (scope) => flat.filter(e => e.it.kind !== 'transfer' && e.it.signed < 0 && (!scope || e.acctNo === scope));
   const pickTf  = (scope) => flat.filter(e => e.it.kind === 'transfer' && (!scope || e.acctNo === scope));
 
-  /* ── สเกลอัตโนมัติตามจำนวนคอลัมน์ (2 บัญชีไม่โหวง · 7 บัญชีไม่ล้น) ── */
-  const k   = Math.max(0.88, Math.min(1.24, 1.30 - rows.length * 0.06));
+  /* ── สเกลอัตโนมัติตามจำนวนคอลัมน์ (2 บัญชีไม่โหวง · 7 บัญชีไม่ล้น) ──
+   * shot = กำลังเรนเดอร์เพื่อเซฟเป็นรูป → บีบให้พอดีจอมือถือ: ย่อสเกล ซ่อนปุ่ม/ดรอปดาวน์
+   * และปลด minWidth ของตารางทุกตัว (ไม่งั้นตารางกว้างกว่ากรอบ 480 แล้วคอลัมน์ขวาโดนตัด) */
+  const shot = saving;
+  const k   = shot ? 0.86 : Math.max(0.88, Math.min(1.24, 1.30 - rows.length * 0.06));
   const fz  = (px) => Math.round(px * k * 10) / 10;
   const sp  = (px) => Math.round(px * k);
   const pad = (css) => String(css).replace(/(\d+(?:\.\d+)?)px/g, (m, d) => sp(parseFloat(d)) + 'px');
+  const inset  = sp(shot ? 10 : 18);              // ขอบซ้าย-ขวาของบล็อกตาราง
+  const tblPad = '0 ' + inset + 'px';
 
   /* รวมยอดของรายการที่เหลือ (แถว "…อีก N ใบ" — ไม่ตัดข้อมูลเงียบ ๆ) */
   const restOf = (list) => {
@@ -2474,6 +2484,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
 
   /* ป้ายบอกที่มาของหมวด — เห็นตลอดแม้ปิดโหมดจัดหมวด */
   const ovBadge = (docKeys, vendor) => {
+    if (saving) return null;                   // ตอนถ่ายรูปไม่ต้องมีป้ายกำกับของคนทำงาน
     const d = (docKeys && docKeys.length === 1) ? bdOvCat(BD_ACT_KEY(docKeys[0])) : 0;
     const v = vendor ? bdOvCat(BD_ACTV_KEY(vendor)) : 0;
     if (!d && !v) return null;
@@ -2488,7 +2499,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
   /* ดรอปดาวน์ย้ายหมวด — ซ่อนไว้ตลอด โผล่เมื่อกด "⇄ จัดหมวด"
    * width ตายตัว: <select> ยืดตาม option ที่ยาวสุด จะกินที่จนตกบรรทัด */
   const catSelect = (opts, docKeys, vendor) => {
-    if (!catMode || !canEdit) return null;
+    if (!catMode || !canEdit || saving) return null;
     return (
       <select key="sel" data-no-capture="1" value="" onClick={(e) => e.stopPropagation()}
         onChange={(e) => { const v = e.target.value; e.target.value = ''; applyMove(v, docKeys, vendor); }}
@@ -2603,14 +2614,15 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
   const detLine   = '1px solid ' + SK.rowLine;
   const detNumSty = { textAlign: 'right', padding: pad('7px 14px'), fontVariantNumeric: 'tabular-nums',
                       whiteSpace: 'nowrap', fontSize: fz(12.5), borderTop: detLine };
-  const detMinW   = sp(320 + (multi ? rows.length * 130 : 0) + 150);
+  const detMinW   = shot ? 0 : sp(320 + (multi ? rows.length * 130 : 0) + 150);
   const ROW_CAP   = 60;   // กันใบยาวจนเซฟรูปไม่ไหว — ส่วนเกินยุบเป็นบรรทัดเดียว (ไม่ตัดทิ้งเงียบ ๆ)
 
   const detHeadCell = (txt, o) => (
     <th key={o.k} style={{ textAlign: o.right ? 'right' : 'left', textTransform: 'none', whiteSpace: 'nowrap',
       background: o.tot ? SK.totHead : SK.head, borderBottom: '2px solid ' + SK.navy,
       fontSize: fz(12), fontWeight: 700, color: SK.navy, padding: pad('10px 14px'),
-      width: o.w ? sp(o.w) : undefined }}>{txt}</th>
+      borderTopLeftRadius: o.k === 'name' ? 8 : undefined, borderTopRightRadius: o.tot ? 8 : undefined,
+      width: (o.w && !shot) ? sp(o.w) : undefined }}>{txt}</th>
   );
   const detHead = (nameLabel) => (
     <thead>
@@ -2741,25 +2753,38 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
     );
   });
 
-  /* ── บันทึกเป็นรูป PNG (ตัดปุ่ม/ดรอปดาวน์ออก · กางตารางให้เต็มก่อนแคป) ── */
+  /* ── บันทึกเป็นรูป PNG — ได้ใบแนวตั้งกว้างเท่าจอมือถือ ────────────────────
+   * setSaving(true) = สั่งให้หน้าเรนเดอร์ "โหมดรูป" (ดู shot): ซ่อนปุ่ม/ดรอปดาวน์ ·
+   * ย่อสเกล · ปลด minWidth ของตาราง ⇒ บีบลงเหลือ BD_SHOT_W ได้
+   * ⚠️ ต้องรอ React เรนเดอร์โหมดรูปเสร็จก่อน (rAF 2 ที) แล้วค่อยวัด/แคป
+   * ⚠️ วัด scrollWidth ของ "ทุกตาราง" หลังบีบแล้ว ถ้ายังเกิน 480 (หลายบัญชี) ต้อง
+   *    ขยายกรอบตาม ไม่งั้นคอลัมน์ขวาโดนตัดหายไปในรูปแบบเงียบ ๆ */
   const handleSaveImage = async () => {
     if (typeof window.html2canvas !== 'function') { alert('ตัวช่วยบันทึกรูปยังโหลดไม่เสร็จ — ลองใหม่อีกครั้ง'); return; }
     const node = cardRef.current; if (!node) return;
     setSaving(true);
-    // ⚠️ จอแคบ = ตารางเลื่อนแนวนอนอยู่ → แคปตรง ๆ จะได้ภาพที่ "คอลัมน์รวมโดนตัด"
-    const wraps  = [].slice.call(node.querySelectorAll('[data-hscroll="1"]'));
-    const prevW  = node.style.width, prevOv = wraps.map(w => w.style.overflowX);
-    const fullW  = wraps.reduce((mx, w) => {
-      const t = w.querySelector('table');
-      return (t && t.scrollWidth > w.clientWidth + 1) ? Math.max(mx, t.scrollWidth + 2) : mx;
-    }, 0);
-    if (fullW) { node.style.width = fullW + 'px'; wraps.forEach(w => { w.style.overflowX = 'visible'; }); }
+    const prevW = node.style.width;
+    let wraps = [], prevOv = [], W = BD_SHOT_W;
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     try {
-      const SCALE = 2;
+      wraps  = [].slice.call(node.querySelectorAll('[data-hscroll="1"]'));
+      prevOv = wraps.map(w => w.style.overflowX);
+      wraps.forEach(w => { w.style.overflowX = 'visible'; });
+      node.style.width = BD_SHOT_W + 'px';
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const need = wraps.reduce((mx, w) => {
+        const t = w.querySelector('table');
+        return t ? Math.max(mx, t.scrollWidth) : mx;
+      }, 0);
+      W = Math.max(BD_SHOT_W, need + 2);
+      if (W !== BD_SHOT_W) {
+        node.style.width = W + 'px';
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      }
+      const SCALE = 2.5;
       const full = await window.html2canvas(node, {
         backgroundColor: '#ffffff', scale: SCALE, useCORS: true, logging: false,
-        windowWidth: Math.max(document.documentElement.clientWidth, fullW + 40),
+        windowWidth: W + 40,
         ignoreElements: (el) => el.getAttribute && el.getAttribute('data-no-capture') === '1',
       });
       const endEl = node.querySelector('[data-capture-end="1"]');
@@ -2768,7 +2793,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
       const usable = (measured > 0 && measured < full.height - 2) ? measured : full.height;
       const accent   = T.net < 0 ? '#e53e3e' : SK.navy;
       const footerBg = T.net < 0 ? '#fff5f5' : SK.netBg;
-      const padPx = Math.round(5 * SCALE), lineH = Math.round(3 * SCALE);
+      const padPx = Math.round(6 * SCALE), lineH = Math.round(3 * SCALE);
       const out = document.createElement('canvas');
       out.width = full.width; out.height = usable + padPx + lineH;
       const ctx = out.getContext('2d');
@@ -2783,7 +2808,8 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
       console.error('save summary image failed', err);
       alert('บันทึกรูปไม่สำเร็จ: ' + (err && err.message ? err.message : err));
     } finally {
-      if (fullW) { node.style.width = prevW; wraps.forEach((w, i) => { w.style.overflowX = prevOv[i] || 'auto'; }); }
+      node.style.width = prevW;
+      wraps.forEach((w, i) => { w.style.overflowX = prevOv[i] || 'auto'; });
       setSaving(false);
     }
   };
@@ -2813,8 +2839,11 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
           <div style={{ fontSize: fz(11.5), opacity: .78 }}>รอบจ่าย</div>
           <div style={{ fontSize: fz(21), fontWeight: 800, lineHeight: 1.3, margin: '1px 0 2px' }}>{periodLabel}</div>
           <div style={{ fontSize: fz(11.5), opacity: .78 }}>{fmtDateLong(today)}</div>
+          {periodEnd < '9999' && (
+            <div style={{ fontSize: fz(10.5), opacity: .7 }}>ถึง {fmtDate(periodEnd)}</div>
+          )}
         </div>
-        <div data-no-capture="1" style={{ flexBasis: '100%', display: 'flex', gap: 7, justifyContent: 'flex-end', marginTop: 2, flexWrap: 'wrap' }}>
+        {!shot && <div data-no-capture="1" style={{ flexBasis: '100%', display: 'flex', gap: 7, justifyContent: 'flex-end', marginTop: 2, flexWrap: 'wrap' }}>
           {canEdit && (
             <button onClick={() => { const nx = !catMode; setCatMode(nx); if (nx && !showDet) { setShowDet(true); bdSumSaveDet(true); } }} style={hdBtn(catMode)}
               title="เปิดเมื่อจะย้ายรายการไปหมวดอื่น — ปกติซ่อนไว้ให้ตารางสะอาด">
@@ -2836,7 +2865,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
               ท้ายชื่อทุกรายการใน “รายละเอียดประเภทรายจ่าย” จะมีช่องให้เลือกหมวด (ย้ายใบเดียว หรือทุกใบของเจ้าหนี้)
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* เลือกบัญชีเป็นคอลัมน์ */}
@@ -2859,16 +2888,19 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
         </div>
       )}
 
+      {/* ── ทุกอย่างในก้อนนี้คือสิ่งที่จะติดไปในรูป (จุดตัด = ท้ายก้อน) ── */}
+      <div data-capture-end="1" style={{ paddingBottom: sp(14) }}>
+
       {/* ── ตารางสรุป (ใช้คลาส .tbl .tbl-compact ของแอปเหมือนใบต้นแบบ) ── */}
-      <div data-hscroll="1" style={{ overflowX: 'auto' }}>
-        <table className="tbl tbl-compact" style={{ width: '100%', fontSize: fz(12.5), minWidth: sp(250 + rows.length * 130) }}>
+      <div data-hscroll="1" style={{ overflowX: 'auto', padding: tblPad }}>
+        <table className="tbl tbl-compact" style={{ width: '100%', fontSize: fz(12.5), minWidth: shot ? 0 : sp(250 + rows.length * 130) }}>
           <thead>
             <tr>
-              <th style={{ minWidth: sp(200), background: SK.head, borderBottom: '2px solid ' + SK.navy,
+              <th style={{ minWidth: shot ? 0 : sp(200), background: SK.head, borderBottom: '2px solid ' + SK.navy, borderTopLeftRadius: 8,
                 textTransform: 'none', fontSize: fz(13), fontWeight: 800, color: SK.navy, padding: pad('14px 12px') }}>ธนาคาร</th>
               {rows.map(r => (
                 <th key={r.acctNo} title={r.acct.accountNo}
-                  style={{ textAlign: 'right', minWidth: sp(150), textTransform: 'none',
+                  style={{ textAlign: 'right', minWidth: shot ? 0 : sp(150), textTransform: 'none',
                     background: SK.head, borderBottom: '2px solid ' + SK.navy, padding: pad('10px 12px') }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
                     <BDBankLogo name={r.acct.bankName} size={sp(27)} />
@@ -2882,8 +2914,9 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
                   </div>
                 </th>
               ))}
-              <th style={{ textAlign: 'right', minWidth: sp(140), textTransform: 'none', fontSize: fz(13), fontWeight: 800,
-                background: SK.totHead, borderBottom: '2px solid ' + SK.navy, color: SK.navy, padding: pad('14px 12px') }}>รวม</th>
+              <th style={{ textAlign: 'right', minWidth: shot ? 0 : sp(140), textTransform: 'none', fontSize: fz(13), fontWeight: 800,
+                background: SK.totHead, borderBottom: '2px solid ' + SK.navy, borderTopRightRadius: 8,
+                color: SK.navy, padding: pad('14px 12px') }}>รวม</th>
             </tr>
           </thead>
           <tbody>{body}</tbody>
@@ -2897,10 +2930,10 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
         { k: 'tf',  t: 'รายละเอียดโอนระหว่างบัญชี', n: 'จาก → ไป',                     b: tfBody },
       ].filter(s => showDet && s.b.length > 0).map(s => (
         <div key={s.k}>
-          <div style={{ padding: pad('14px 16px 7px'), borderTop: '1px solid ' + SK.head }}>
+          <div style={{ padding: sp(16) + 'px ' + inset + 'px ' + sp(7) + 'px' }}>
             <span style={{ fontSize: fz(14), fontWeight: 800, color: SK.navy }}>{s.t}</span>
           </div>
-          <div data-hscroll="1" style={{ overflowX: 'auto' }}>
+          <div data-hscroll="1" style={{ overflowX: 'auto', padding: tblPad }}>
             <table className="tbl tbl-compact" style={{ width: '100%', fontSize: fz(12.5), minWidth: detMinW }}>
               {detHead(s.n)}
               <tbody>{s.b}</tbody>
@@ -2908,9 +2941,10 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
           </div>
         </div>
       ))}
+      </div>
 
-      {/* ── ท้ายใบ (จุดตัดรูป) ── */}
-      <div data-capture-end="1" style={{ padding: pad('10px 16px'),
+      {/* ── ท้ายใบ — อยู่นอกจุดตัด: เห็นบนจอ แต่ไม่ติดไปในรูป (ใบต้นแบบจบที่ "รวมทั้งสิ้น") ── */}
+      <div style={{ padding: pad('10px 16px'),
         borderTop: '1px solid ' + (T.net < 0 ? '#f3d6d2' : SK.head),
         background: T.net < 0 ? '#fdf8f7' : SK.mint, display: 'flex', justifyContent: 'space-between',
         gap: 10, flexWrap: 'wrap', fontSize: fz(11.5), color: 'var(--ink-600)' }}>
