@@ -2282,10 +2282,11 @@ function bdSumSavePick(list) {
   try { localStorage.setItem(BD_SUM_PICK_KEY, JSON.stringify(list || [])); } catch (_) {}
 }
 
-/* กาง/ย่อตารางรายละเอียด — ค่าตั้งต้น = กาง (ย่อแล้วกด "บันทึกรูป" จะได้ใบสรุปสั้น ๆ) */
+/* กาง/ย่อตารางรายละเอียดบนจอ — ค่าตั้งต้น = "ย่อ" ให้การ์ดสั้น กระทัดรัดเท่าของเดิม
+ * ⚠️ ไม่เกี่ยวกับรูปที่เซฟ — รูปใส่ตารางรายละเอียดให้เสมอ (ดู shot ใน BDMainSummary) */
 const BD_SUM_DET_KEY = 'bdh-bd-sum-detail-v1';
 function bdSumLoadDet() {
-  try { return localStorage.getItem(BD_SUM_DET_KEY) !== '0'; } catch (_) { return true; }
+  try { return localStorage.getItem(BD_SUM_DET_KEY) === '1'; } catch (_) { return false; }
 }
 function bdSumSaveDet(on) {
   try { localStorage.setItem(BD_SUM_DET_KEY, on ? '1' : '0'); } catch (_) {}
@@ -2562,7 +2563,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
       <td key={o.k} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
         fontWeight: neg ? 800 : (o.tot ? 800 : (o.bold ? 700 : (o.semi ? 600 : 400))), color: col, background: bg,
         borderTop: o.topRule ? '2px solid ' + SK.navy : undefined,
-        fontSize: fz(o.indent ? 12.5 : 13), padding: pad('10px 12px') }}>
+        fontSize: fz(o.indent ? 12.5 : 13), padding: pad(o.indent ? '8px 12px' : '9px 12px') }}>
         {Math.abs(v) < 0.005 ? <span style={{ color: 'var(--ink-300)' }}>—</span>
           : (v < 0 ? '−' : (o.sign || '')) + fmtMoney(Math.abs(v))}
       </td>
@@ -2573,7 +2574,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
   const sumRow = (key, label, pick, o) => (
     <tr key={key} style={{ background: o.rowBg }}>
       <td title={o.hint || undefined}
-        style={{ fontWeight: o.bold ? 800 : (o.semi ? 600 : 400), padding: pad('10px 12px'),
+        style={{ fontWeight: o.bold ? 800 : (o.semi ? 600 : 400), padding: pad(o.indent ? '8px 12px' : '9px 12px'),
           paddingLeft: o.indent ? sp(30) : sp(12), fontSize: fz(o.indent ? 12.5 : 13),
           color: o.labelColor || (o.indent ? 'var(--ink-700)' : SK.navy), whiteSpace: 'nowrap',
           background: o.rowBg || undefined,
@@ -2856,7 +2857,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
             ⚙ เลือกบัญชี ({rows.length}/{allNos.length})
           </button>
           <button onClick={() => { const v = !showDet; setShowDet(v); bdSumSaveDet(v); }} style={hdBtn(!showDet)}
-            title="ย่อ = เหลือเฉพาะตารางสรุป · กดบันทึกรูปตอนย่อไว้ จะได้ใบสั้น ๆ ส่งผู้บริหาร">
+            title="กาง/ย่อตารางรายละเอียดบนจอ — ไม่เกี่ยวกับรูปที่เซฟ (รูปมีรายละเอียดให้เสมอ)">
             {showDet ? '▾ แบบเต็ม' : '▸ แบบย่อ'}
           </button>
           <button onClick={handleSaveImage} disabled={saving} style={hdBtn(false, saving)} title="บันทึกใบสรุปนี้เป็นรูป (PNG)">
@@ -2930,7 +2931,7 @@ function BDMainSummary({ views, today, periodEnd, periodLabel, canEdit, apList }
         { k: 'in',  t: 'รายละเอียดเงินเข้า',        n: 'ชื่อผู้จ่าย / คำอธิบายรายการ', b: inBody },
         { k: 'out', t: 'รายละเอียดประเภทรายจ่าย',   n: 'ชื่อเจ้าหนี้ / คำอธิบายรายการ', b: outBody },
         { k: 'tf',  t: 'รายละเอียดโอนระหว่างบัญชี', n: 'จาก → ไป',                     b: tfBody },
-      ].filter(s => showDet && s.b.length > 0).map(s => (
+      ].filter(s => (showDet || shot) && s.b.length > 0).map(s => (
         <div key={s.k}>
           <div style={{ padding: sp(16) + 'px ' + inset + 'px ' + sp(7) + 'px' }}>
             <span style={{ fontSize: fz(14), fontWeight: 800, color: SK.navy }}>{s.t}</span>
