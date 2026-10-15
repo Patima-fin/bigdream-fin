@@ -41,6 +41,7 @@
 
   const CFC_TABLE = 'cfCoding';
   const CFC_LS = 'bdh-cfcode-v1';        // ★ prefix bdh- เสมอ (origin เดียวกับ BIO ได้ → คีย์ห้ามชน)
+  const CFC_SUMOPEN_LS = 'bdh-cfc-acctsum-v1';   // ย่อ/กางการ์ด "สรุปรายบัญชี" (มุมมองของคนใช้ ไม่ใช่ข้อมูลร่วม)
   const CFC_COMPANY = 'บริษัท บิ๊ก ดรีม โฮลดิง จำกัด';
 
   /* สีชุด BIGDREAM (อ่อนกว่า BIO ~1.5 เฉด — ดู CLAUDE.md)
@@ -54,68 +55,32 @@
     shadow: '0 8px 24px rgba(62,164,95,.10)',
   };
 
-  /* ── ผังหมวด "ตั้งต้น" ──────────────────────────────────────────────────
-   *  BIGDREAM ยังไม่เคยทำงบกระแสเงินสด ⇒ ไม่มีไฟล์เดิมให้ถอดผังหมวดออกมา
-   *  ชุดนี้จึงเป็น "ผังกลางแบบมาตรฐาน" ให้เริ่มงานได้ทันที ไม่ใช่ผังจริงของบริษัท
+  /* ── ผังหมวด "ตั้งต้น" — ชุดย่อ ──────────────────────────────────────────
+   *  2026-10-15 ย่อจาก 74 หมวดชื่อยาว → ชุดสั้นแบบที่ใช้จริงที่วอเทอร์ป๊อก (เลือกหมวดเร็วกว่ามาก)
+   *  ★ ฝั่งจ่ายดำเนินงาน = หมวด 1-5, 7 ของ "ผังกลาง 8 หมวด" (CF_CATS ใน shared_bits.jsx)
+   *    ชุดเดียวกับ Bank Daily / เจ้าหนี้คงค้าง ⇒ ทั้งแอปพูดภาษาเดียวกัน ไม่ต้องเทียบหมวดข้ามหน้า
+   *    · หมวด 6 "เงินกู้ยืมและดอกเบี้ย" อยู่ใต้ "จัดหาเงิน" ตามที่งบกระแสเงินสดต้องการ
+   *    · หมวด 8 "ประมาณการเงินสำรองจ่าย" ไม่อยู่ในชุดนี้ — เป็นถังของ "ประมาณการ" ในหน้า Bank Daily
+   *      ไม่ใช่เงินสดที่เคลื่อนจริง ใส่มาแล้วงบจะมีบรรทัดที่ไม่มีเงินจริงค้างตลอดกาล
+   *  ★ ฝั่งรับ / ลงทุน / จัดหาเงิน ใส่เท่าที่ต้องใช้จริง (GL ของ PEAK ส่ง RV มาเป็นขารับ)
    *  → ผู้ใช้แก้/เพิ่ม/ลบได้หมดที่ปุ่ม 🗂 จัดการหมวด (หรือส่งออก-แก้ใน Excel-นำเข้ากลับ)
+   *    ผังที่บันทึกไว้แล้วชนะชุดนี้เสมอ ⇒ อยากกลับมาใช้ชุดย่อ กด "↺ ใช้ผังตั้งต้นชุดย่อ" ในหน้าต่างนั้น
    *  a = กิจกรรม (op ดำเนินงาน / inv ลงทุน / fin จัดหาเงิน / transfer ไม่นับ)
-   *  ลำดับในชุดนี้ = ลำดับแถวของงบที่ส่งออก — ฝั่ง "รับ" ต้องมาก่อน "จ่าย" ในทุกกิจกรรม */
+   *  ลำดับในชุดนี้ = ลำดับแถวของงบที่ส่งออก — ฝั่ง "รับ" ต้องมาก่อน "จ่าย" ในทุกกิจกรรม
+   *  ⚠️ ตั้งชื่อหมวดใหม่แล้วต้องเช็กว่า cfcFlowOf ให้ฝั่งเงินถูก (CFC_NAME_IN / CFC_GRP_IN)
+   *     ฝั่งเงินผิด = ตัวเสนอหมวดกรองหมวดนั้นทิ้งทั้งฝั่งแบบเงียบ ๆ */
   const CFC_MASTER_SEED = [
     { a: 'op', g: 'รายรับจากการดำเนินงาน', items: [
-      'รับชำระจากลูกค้า', 'รายได้ค่าบริการ', 'รายได้ค่าเช่า', 'รายได้อื่น',
-      'รับคืนเงินทดรอง/เงินยืมพนักงาน', 'รับคืนภาษี (สรรพากร)',
+      'รับชำระจากลูกค้า', 'รายได้อื่น', 'รับคืนเงินสำรองจ่าย',
     ] },
-    { a: 'op', g: 'ต้นทุนสินค้าและงานบริการ', items: [
-      'ค่าสินค้า/วัตถุดิบ', 'ค่าจ้างผู้รับเหมา/ผู้รับจ้างช่วง', 'ค่าขนส่งและค่าระวาง', 'ค่าบรรจุภัณฑ์',
+    { a: 'op', g: 'รายจ่ายจากการดำเนินงาน', items: [
+      'เจ้าหนี้การค้า', 'เงินมัดจำ/เงินเบิกล่วงหน้า', 'ค่าใช้จ่ายประจำ',
+      'เงินสำรองจ่าย', 'เงินสดย่อย', 'เงินเดือนและค่าที่ปรึกษา',
     ] },
-    { a: 'op', g: 'ค่าใช้จ่ายพนักงาน', items: [
-      'เงินเดือนและค่าแรง', 'โบนัส/ค่าล่วงเวลา', 'สวัสดิการพนักงาน',
-      'ประกันสังคม/กองทุนสำรองเลี้ยงชีพ', 'ค่าอบรมและพัฒนาบุคลากร',
-    ] },
-    { a: 'op', g: 'ค่าที่ปรึกษาและบริการวิชาชีพ', items: [
-      'ค่าทำบัญชี', 'ค่าสอบบัญชี', 'ค่าที่ปรึกษากฎหมาย', 'ค่าที่ปรึกษาทางการเงิน', 'ค่าที่ปรึกษาอื่น',
-    ] },
-    { a: 'op', g: 'ค่าเช่าและสาธารณูปโภค', items: [
-      'ค่าเช่าสำนักงาน', 'ค่าเช่าคลัง/โกดัง', 'ค่าส่วนกลาง/ค่าบริการพื้นที่',
-      'ค่าไฟฟ้า', 'ค่าน้ำประปา', 'ค่าโทรศัพท์/อินเทอร์เน็ต',
-    ] },
-    { a: 'op', g: 'ค่าใช้จ่ายสำนักงาน', items: [
-      'ค่าวัสดุสิ้นเปลืองสำนักงาน', 'ค่าซ่อมแซมและบำรุงรักษา', 'ค่าประกันภัย',
-      'ค่าโปรแกรม/ระบบสารสนเทศ', 'ค่าไปรษณีย์/ขนส่งเอกสาร', 'ค่าใช้จ่ายเบ็ดเตล็ด',
-    ] },
-    { a: 'op', g: 'ค่าเดินทางและยานพาหนะ', items: [
-      'ค่าน้ำมันเชื้อเพลิง', 'ค่าเดินทางและที่พัก', 'ค่าใช้จ่ายรถยนต์ (ต่อภาษี/ซ่อม)', 'ค่าทางด่วน/ที่จอดรถ',
-    ] },
-    { a: 'op', g: 'การตลาดและการรับรอง', items: [
-      'ค่าโฆษณาและประชาสัมพันธ์', 'ค่ารับรองและของขวัญ', 'ค่าคอมมิชชั่น', 'ค่าจัดงาน/กิจกรรม',
-    ] },
-    { a: 'op', g: 'ภาษีและค่าธรรมเนียม', items: [
-      'ภาษีเงินได้นิติบุคคล', 'ภาษีมูลค่าเพิ่ม (นำส่ง)', 'ภาษีหัก ณ ที่จ่าย (นำส่ง)',
-      'ภาษีโรงเรือน/ป้าย/ที่ดิน', 'ค่าธรรมเนียมธนาคาร', 'ค่าธรรมเนียมราชการ',
-    ] },
-    { a: 'inv', g: 'เงินสดรับจากการลงทุน', items: [
-      'รับเงินปันผล', 'ดอกเบี้ยรับ', 'ขายทรัพย์สิน/อุปกรณ์', 'รับคืนเงินประกัน/เงินมัดจำ',
-    ] },
-    { a: 'inv', g: 'ซื้อทรัพย์สินและเงินลงทุน', items: [
-      'ซื้อที่ดินและอาคาร', 'ค่าตกแต่ง/ปรับปรุงอาคาร', 'ซื้อเครื่องจักรและอุปกรณ์',
-      'ซื้ออุปกรณ์สำนักงาน/คอมพิวเตอร์', 'ซื้อยานพาหนะ', 'ซื้อโปรแกรม/สินทรัพย์ไม่มีตัวตน',
-      'เงินลงทุนในบริษัทย่อย/ร่วม', 'เงินมัดจำและเงินประกัน',
-    ] },
-    { a: 'fin', g: 'เงินสดรับจากการจัดหาเงิน', items: [
-      'รับเงินกู้ - สถาบันการเงิน', 'รับเงินกู้ - กรรมการ', 'รับเงินกู้ - บริษัทในเครือ',
-      'รับเงินเพิ่มทุน', 'รับคืนเงินให้กู้ยืม',
-    ] },
-    { a: 'fin', g: 'ชำระคืนเงินกู้', items: [
-      'ชำระคืนเงินกู้ - สถาบันการเงิน', 'ชำระคืนเงินกู้ - กรรมการ', 'ชำระคืนเงินกู้ - บริษัทในเครือ',
-      'ชำระค่างวดเช่าซื้อ/ลีสซิ่ง',
-    ] },
-    { a: 'fin', g: 'ดอกเบี้ยจ่ายและเงินปันผล', items: [
-      'ดอกเบี้ยจ่าย - สถาบันการเงิน', 'ดอกเบี้ยจ่าย - กรรมการ', 'ดอกเบี้ยจ่าย - บริษัทในเครือ',
-      'จ่ายเงินปันผล',
-    ] },
-    { a: 'fin', g: 'เงินให้กู้ยืม', items: [
-      'เงินให้กู้ยืมแก่กรรมการ', 'เงินให้กู้ยืมแก่บริษัทในเครือ',
-    ] },
+    { a: 'inv', g: 'เงินสดรับจากการลงทุน', items: ['ดอกเบี้ยรับ', 'ขายทรัพย์สิน/อุปกรณ์'] },
+    { a: 'inv', g: 'ซื้อทรัพย์สินและเงินลงทุน', items: ['ซื้อทรัพย์สิน/อุปกรณ์', 'เงินลงทุน/เงินให้กู้ยืม'] },
+    { a: 'fin', g: 'เงินสดรับจากการจัดหาเงิน', items: ['รับเงินกู้', 'รับเงินเพิ่มทุน'] },
+    { a: 'fin', g: 'ชำระคืนเงินกู้และดอกเบี้ย', items: ['เงินกู้ยืมและดอกเบี้ย'] },
     // ไม่อยู่ในงบ (ไม่ใช่กิจกรรม) แต่ต้องมีให้เลือก เพราะรายการจริงมี
     { a: 'transfer', g: 'ไม่นับเป็นกิจกรรม', items: ['โอนเงินระหว่างบัญชี'] },
   ];
@@ -133,6 +98,27 @@
   const cfcDigits = (v) => String(v == null ? '' : v).replace(/\D/g, '');
   const cfcPad2 = (n) => ('0' + n).slice(-2);
   const cfcUid = () => 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  /* ym ของ "เดือนก่อนเดือนปัจจุบัน" — ค่าตั้งต้นของตัวกรองเดือน (อยู่ ต.ค. → 2026-09)
+     งบกระทบยอดทำย้อนหลังหลังปิดเดือน ⇒ เดือนปัจจุบันยังไม่ครบ ไม่ใช่เดือนที่คนทำงานอยากเห็นก่อน
+     ⚠️ ต้อง setDate(1) ก่อนถอยเดือน — 31 ต.ค. ลบ 1 เดือนตรง ๆ ได้ 1 ต.ค. (ก.ย. ไม่มีวันที่ 31) */
+  const cfcPrevYm = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.getFullYear() + '-' + cfcPad2(d.getMonth() + 1); };
+
+  /* เลขหมวดของ "ผังกลาง 8 หมวด" (CF_CATS ใน shared_bits.jsx) — เอาไปโชว์หน้าชื่อในตัวเลือก
+     ให้อ่านแบบเดียวกับ Bank Daily / เจ้าหนี้คงค้าง ("3 · ค่าใช้จ่ายประจำ")
+     ★ หมวดที่ไม่อยู่ในผังกลาง (ฝั่งรับ / ลงทุน / จัดหาเงิน / โอน) ไม่มีเลข → โชว์ชื่อเปล่า
+     ⚠️ เทียบด้วย cfcNorm ไม่ใช่ชื่อดิบ — ผู้ใช้แก้ช่องไฟ/วรรคตอนในชื่อหมวดแล้วเลขต้องยังติดอยู่
+     ⚠️ อ่าน CF_CATS แบบกันพลาด: shared_bits.jsx โหลดก่อนอยู่แล้ว แต่ถ้าวันไหนโหลดไม่สำเร็จ
+        หน้านี้ต้องแค่ "ไม่มีเลขหน้าชื่อ" ไม่ใช่จอขาว */
+  const CFC_CENTRAL_CODE = (() => {
+    const m = {};
+    (typeof CF_CATS !== 'undefined' && Array.isArray(CF_CATS) ? CF_CATS : []).forEach(c => { m[cfcNorm(c.name)] = c.code; });
+    return m;
+  })();
+  const cfcCatOptLabel = (name) => {
+    const c = CFC_CENTRAL_CODE[cfcNorm(name)];
+    return c ? c + ' · ' + name : String(name == null ? '' : name);
+  };
 
   /* คีย์ประจำบัญชี — เลขล้วนก่อน
      ⚠️ ต้อง fallback เป็นชื่อ: ถ้าอ่านเลขไม่ออก cfcDigits คืน '' เหมือนกันทุกบัญชี
@@ -454,13 +440,13 @@
         <option value="">— ยังไม่ลงหมวด —</option>
         {/* ต้องมี option ของค่าปัจจุบันเสมอ ไม่งั้น <select> เด้งกลับเป็นค่าว่าง
             — ทั้งตอนยังไม่กาง และตอนค่านั้นเป็น "หมวดผี" ที่ไม่มีในผังแล้ว */}
-        {value && (!ready || !cur) && <option value={value}>{value}</option>}
+        {value && (!ready || !cur) && <option value={value}>{cfcCatOptLabel(value)}</option>}
         {ready && groups.map(([k, items]) => {
           const [a, f, g] = k.split('|');
           const meta = CFC_FLOW_META[f] || CFC_FLOW_META.out;
           return (
             <optgroup key={k} label={meta.mark + ' ' + meta.label + ' · ' + (CFC_ACT_SHORT[a] || '') + ' · ' + g}>
-              {items.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+              {items.map(m => <option key={m.name} value={m.name}>{cfcCatOptLabel(m.name)}</option>)}
             </optgroup>
           );
         })}
@@ -561,7 +547,7 @@
      ⚠️ ลำดับใน master = ลำดับแถวของงบที่ส่งออก ⇒ ทุกการเพิ่ม/ย้ายต้องผ่าน cfcInsertCat
      ⚠️ เปลี่ยนชื่อ/ลบ ต้องลากกฎที่เรียนไว้ตามไปด้วยเสมอ ไม่งั้นรายการที่เคยลงหมวดนี้
         กลายเป็น "หมวดผี" — ยอดไม่เข้าบรรทัดไหนในงบ และไม่ถูกนับว่ายังไม่ลงหมวด */
-  function CfcCatManagerModal({ master, rules, onClose, onAdd, onEdit, onDelete, onExportChart, onImportChart }) {
+  function CfcCatManagerModal({ master, rules, onClose, onAdd, onEdit, onDelete, onExportChart, onImportChart, onResetChart }) {
     const [mode, setMode] = useState('list');     // list | add | edit
     const [target, setTarget] = useState(null);
     const [del, setDel] = useState(null);         // { row, n, moveTo }
@@ -604,6 +590,8 @@
             <input value={q} onChange={e => setQ(e.target.value)} style={Object.assign({}, inp, { flex: 1, minWidth: 200 })} placeholder="ค้นหาชื่อหมวด / กลุ่ม…" />
             <button className="btn" style={{ fontSize: 12 }} onClick={onExportChart} title="ส่งออกผังหมวดทั้งชุดเป็น Excel 4 คอลัมน์ — แก้เป็นชุดแล้วนำเข้ากลับได้">⬇️ ส่งออกผัง</button>
             <button className="btn" style={{ fontSize: 12 }} onClick={() => fileChart.current && fileChart.current.click()} title="นำเข้าผังหมวดจาก Excel — ทับผังเดิมทั้งชุด">📥 นำเข้าผัง</button>
+            <button className="btn" style={{ fontSize: 12 }} onClick={onResetChart}
+              title="ทับผังเดิมด้วยผังตั้งต้น ชุดย่อ — ฝั่งจ่ายดำเนินงานใช้หมวด 1-5, 7 ชุดเดียวกับ Bank Daily / เจ้าหนี้คงค้าง">↺ ใช้ผังตั้งต้นชุดย่อ</button>
             <input ref={fileChart} type="file" accept=".xls,.xlsx,.csv" style={{ display: 'none' }}
               onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) { onImportChart(f); onClose(); } }} />
           </div>
@@ -1119,6 +1107,10 @@
     const [busy, setBusy] = useState('');
     const [ym, setYm] = useState('');
     const [acct, setAcct] = useState('');
+    /* ย่อ/กางการ์ด "สรุปรายบัญชี" — ค่าตั้งต้น = กาง เพราะเป็นตัวตรวจว่ายอดตรง GL ไหม
+       ★ จำไว้ในเครื่องเท่านั้น: เป็นมุมมองของคนใช้แต่ละคน ไม่ใช่ข้อมูลที่ต้องแชร์ทั้งทีม */
+    const [sumOpen, setSumOpen] = useState(() => { try { return localStorage.getItem(CFC_SUMOPEN_LS) !== '0'; } catch (e) { return true; } });
+    const toggleSum = () => setSumOpen(v => { const n = !v; try { localStorage.setItem(CFC_SUMOPEN_LS, n ? '1' : '0'); } catch (e) {} return n; });
     const [pushAsk, setPushAsk] = useState(false);   // หน้าต่างยืนยัน "จะดันเดือนไหน"
     const [tab, setTab] = useState('all');
     const [q, setQ] = useState('');
@@ -1326,12 +1318,19 @@
       const m = {}; allRows.forEach(r => { const k = cfcAcctKey(r.acctNo, r.acctLabel); if (!m[k]) m[k] = { key: k, no: r.acctNo, label: r.acctLabel }; });
       return Object.values(m).sort((a, b) => String(a.label).localeCompare(String(b.label), 'th'));
     }, [allRows]);
-    /* ★ ตั้งเดือนล่าสุดให้ "ครั้งแรกที่มีข้อมูล" เท่านั้น — ห้ามผูก ym ไว้ใน deps
+    /* ★ ตั้งเดือนตั้งต้นให้ "ครั้งแรกที่มีข้อมูล" เท่านั้น — ห้ามผูก ym ไว้ใน deps
          ไม่งั้นพอผู้ใช้เลือก "ทุกเดือน" (ym='') effect จะเด้งกลับไปเดือนล่าสุดทันที
          = ตัวเลือก "ทุกเดือน" กดไม่ติดตลอดกาล (และตัวเทียบยอดกับ GL ซึ่งทำงานเฉพาะ
          ตอนดูทุกเดือน ก็ไม่มีวันโผล่) */
     const ymInit = useRef(false);
-    useEffect(() => { if (!ymInit.current && allYms.length) { ymInit.current = true; setYm(allYms[0]); } }, [allYms]);
+    /* ★ ค่าตั้งต้น = "เดือนก่อนเดือนปัจจุบัน" (อยู่ ต.ค. → เปิดมาเห็น ก.ย.) ตามจังหวะงานจริง
+         ถ้าเดือนนั้นยังไม่มีข้อมูล → ตกมาที่เดือนล่าสุดที่มีข้อมูล (allYms เรียงใหม่ → เก่า) */
+    useEffect(() => {
+      if (ymInit.current || !allYms.length) return;
+      ymInit.current = true;
+      const prev = cfcPrevYm();
+      setYm(allYms.indexOf(prev) >= 0 ? prev : allYms[0]);
+    }, [allYms]);
 
     const rows = useMemo(() => allRows.filter(r =>
       (!ym || String(r.iso).slice(0, 7) === ym) &&
@@ -1543,6 +1542,26 @@
       XLSX.utils.book_append_sheet(wb, ws, 'ผังหมวด');
       XLSX.writeFile(wb, 'BDH-ผังหมวดงบกระแสเงินสด.xlsx');
       toast && toast('ส่งออกผังหมวด ' + master.length + ' รายการ — แก้แล้วนำเข้ากลับได้เลย');
+    }
+    /* ทับผังเดิมด้วย "ผังตั้งต้นชุดย่อ" — ทางเดียวที่จะได้ชุดใหม่ ถ้าผังเดิมถูกบันทึกไว้แล้ว
+       (seed ใช้เฉพาะตอนยังไม่มีผังในฐานข้อมูล ⇒ แก้ seed เฉย ๆ คนที่เคยแก้ผังจะไม่เห็นอะไรเลย)
+       ⚠️ ถามก่อนเสมอ + บอกจำนวนหมวดที่ "มีกฎลงไว้แล้วแต่ไม่มีในชุดย่อ" เหมือนที่ importChart ทำ
+          หมวดพวกนั้นจะกลายเป็นหมวดผี — ยอดไม่เข้าบรรทัดไหนในงบ (แถบเตือนด้านบนนับให้) */
+    function resetChart() {
+      const seed = cfcWithExtraCats(cfcSeedMaster());
+      const keep = {}; seed.forEach(m => { keep[cfcNorm(m.name)] = 1; });
+      const used = cfcRuleCatCount(rules);
+      const lost = master.filter(m => !keep[cfcNorm(m.name)] && used[m.name]);
+      let msg = 'ทับผังหมวดเดิม (' + master.length + ' หมวด) ด้วยผังตั้งต้นชุดย่อ ' + seed.length + ' หมวด?';
+      if (lost.length) {
+        msg += '\n\n' + lost.length + ' หมวดที่ใช้งานอยู่ไม่มีในชุดย่อ:\n'
+          + lost.slice(0, 8).map(m => '• ' + m.name + ' (' + used[m.name] + ' กฎ)').join('\n')
+          + (lost.length > 8 ? '\n…และอีก ' + (lost.length - 8) + ' หมวด' : '')
+          + '\n\nยอดของรายการที่ลงหมวดพวกนี้ไว้จะไม่เข้าบรรทัดไหนในงบ — ต้องไล่เลือกหมวดใหม่';
+      }
+      if (!confirm(msg)) return;
+      setCatMgr(false);
+      persistMaster(seed, 'ใช้ผังตั้งต้นชุดย่อ ' + seed.length + ' หมวดแล้ว');
     }
     async function importChart(file) {
       setBusy('กำลังอ่านผังหมวด…');
@@ -1918,9 +1937,10 @@
         {/* ผังหมวดยังเป็นชุดตั้งต้น — ต้องบอกให้ชัด ไม่งั้นจะเผลอเอาชื่อหมวดกลาง ๆ ไปใช้จริง */}
         {isSeedMaster && (
           <div style={Object.assign({}, card, { padding: '11px 16px', borderColor: '#f0dcb0', background: C.warnBg, fontSize: 12.5, color: C.warn, lineHeight: 1.75 })}>
-            📋 ตอนนี้ใช้ <strong>ผังหมวดตั้งต้นแบบมาตรฐาน</strong> ({master.length} หมวด) เพราะ BIGDREAM ยังไม่เคยทำงบกระแสเงินสดมาก่อน —
-            ยังไม่ใช่ผังจริงของบริษัท กด <strong>🗂 จัดการหมวด</strong> เพื่อแก้ชื่อ/เพิ่ม/ลบให้ตรงกับงบที่จะใช้จริง
-            (หรือกด “⬇️ ส่งออกผัง” ไปแก้เป็นชุดใน Excel แล้วนำเข้ากลับ) · ผังจะกลายเป็นของบริษัททันทีที่แก้ครั้งแรก
+            📋 ตอนนี้ใช้ <strong>ผังหมวดตั้งต้นชุดย่อ</strong> ({master.length} หมวด) — ฝั่งจ่ายดำเนินงานเป็นหมวดชุดเดียวกับ
+            <strong>Bank Daily / เจ้าหนี้คงค้าง</strong> (หมวด 1-5, 7) ยังไม่ใช่ผังจริงของบริษัท กด <strong>🗂 จัดการหมวด</strong>
+            เพื่อแก้ชื่อ/เพิ่ม/ลบให้ตรงกับงบที่จะใช้จริง (หรือ “⬇️ ส่งออกผัง” ไปแก้เป็นชุดใน Excel แล้วนำเข้ากลับ) ·
+            ผังจะกลายเป็นของบริษัททันทีที่แก้ครั้งแรก
           </div>
         )}
 
@@ -1946,8 +1966,22 @@
              ครั้งเดียวที่เดือนแรกสุด แล้วเดือนถัดไปคำนวณต่อจากกระแสให้เอง            */}
         {acctSummary.list.length > 0 && (
           <div style={Object.assign({}, card, { padding: 0, overflow: 'hidden' })}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'baseline', justifyContent: 'space-between', padding: '13px 18px 9px' }}>
-              <div style={{ fontSize: 14.5, fontWeight: 800, color: C.ink }}>🏦 สรุปรายบัญชี · {ym || 'ทุกเดือน'}</div>
+            {/* ★ กดหัวการ์ด = ย่อ/กาง — ตารางนี้กินที่ตอนไล่ลงหมวด (แบบเดียวกับการ์ดของป๊อก)
+                 ย่อแล้วยังเห็นตัวเลขสำคัญ: แถบยอดรายกิจกรรมด้านขวายังอยู่ + บรรทัดสรุปใต้หัวข้อ */}
+            <div onClick={toggleSum} title={sumOpen ? 'กดเพื่อย่อตารางสรุปรายบัญชี' : 'กดเพื่อกางตารางสรุปรายบัญชี'}
+              style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'baseline', justifyContent: 'space-between', padding: '13px 18px 9px', cursor: 'pointer', userSelect: 'none' }}>
+              <div>
+                <div style={{ fontSize: 14.5, fontWeight: 800, color: C.ink }}>
+                  🏦 สรุปรายบัญชี · {ym || 'ทุกเดือน'}
+                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: C.primaryD }}>{sumOpen ? 'ย่อ ▴' : 'กดเพื่อดู ▾'}</span>
+                </div>
+                {!sumOpen && (
+                  <div style={{ fontSize: 11.5, color: C.mut, marginTop: 3 }}>
+                    {acctSummary.list.length} บัญชี · {acctSummary.tot.keyed ? 'ปลายงวด ' + cfcMoney(acctSummary.tot.closing) : 'ยังไม่มีต้นงวด'}
+                    {acctSummary.tot.uncoded ? ' · ยังไม่ลงหมวด ' + acctSummary.tot.uncoded + ' รายการ' : ''}
+                  </div>
+                )}
+              </div>
               <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 12.5, color: C.mut }}>
                 {[['ดำเนินงาน', actStat.op, CFC_ACT_COLOR.op], ['ลงทุน', actStat.inv, CFC_ACT_COLOR.inv],
                   ['จัดหาเงิน', actStat.fin, CFC_ACT_COLOR.fin], ['ยังไม่ลงหมวด', actStat.none, C.neg]].map(([lb, v, col]) => (
@@ -1955,7 +1989,7 @@
                 ))}
               </div>
             </div>
-            <div style={{ overflowX: 'auto' }}>
+            {sumOpen && <div style={{ overflowX: 'auto' }}>
               <table className="tbl tbl-compact" style={{ width: '100%', minWidth: 900, fontVariantNumeric: 'tabular-nums' }}>
                 <thead>
                   <tr>
@@ -2021,8 +2055,8 @@
                   </tr>
                 </tbody>
               </table>
-            </div>
-            <div style={{ padding: '9px 18px 12px', fontSize: 11, color: C.faint, lineHeight: 1.75 }}>
+            </div>}
+            {sumOpen && <div style={{ padding: '9px 18px 12px', fontSize: 11, color: C.faint, lineHeight: 1.75 }}>
               {glBuckets.length
                 ? <React.Fragment>
                     ยอดต้นงวดอ่านมาจาก <strong style={{ color: C.mut }}>“ยอดยกมา” ใน GL</strong> ที่นำเข้าไว้ ({glBuckets.length} ก้อน · {glOnlyN} รายการที่ไม่มีใน PV) —
@@ -2034,7 +2068,7 @@
                     (หรือคีย์เองก็ได้ · ดูจาก statement ณ ต้นเดือนแรกสุดที่มีข้อมูล) เดือนถัด ๆ ไประบบยกยอดต่อให้เอง ·
                     ไม่มีต้นงวด = ยังลงหมวด/ส่งออกงบได้ตามปกติ แค่ไม่มีบรรทัด “เงินสดต้นงวด/ปลายงวด”
                   </React.Fragment>}
-            </div>
+            </div>}
           </div>
         )}
 
@@ -2137,7 +2171,7 @@
 
         {catMgr && <CfcCatManagerModal master={master} rules={rules} onClose={() => setCatMgr(false)}
           onAdd={saveNewCat} onEdit={saveCatEdit} onDelete={saveCatDelete}
-          onExportChart={exportChart} onImportChart={importChart} />}
+          onExportChart={exportChart} onImportChart={importChart} onResetChart={resetChart} />}
         {bulk && <CfcPayeeBulkModal groups={payeeGroups} master={master}
           onClose={() => setBulk(false)} onApply={applyPayeeBulk} />}
         {extraEdit && <CfcExtraRowModal initial={extraEdit} accounts={allAccts}
