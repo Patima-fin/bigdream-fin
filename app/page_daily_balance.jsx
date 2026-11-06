@@ -37,6 +37,39 @@ function dbNewestSnap(snaps, ac) {
   return best;
 }
 
+/* -- "ใครบันทึกล่าสุด เมื่อไหร่" ----------------------------------------------
+ *   snapshot เก็บ takenAt (ISO) + enteredBy (username) ไว้ตั้งแต่ต้น (ดู saveOne/saveAll)
+ *   แต่ไม่เคยเอามาโชว์ที่ไหนเลย => ทีมมองไม่ออกว่ายอดที่เห็นใครคีย์ไว้เมื่อไหร่
+ *   ⚠️ ตั้งชื่อ db* ของตัวเอง ไม่เรียก dxFmtDateTimeTH ของ page_data_extras.jsx —
+ *      นั่นเป็น global ของไฟล์อื่น ลำดับโหลดใน index.html เปลี่ยนเมื่อไหร่หน้านี้ตายทันที
+ *   ⚠️ ข้อมูลเก่า/ที่กู้คืนมาอาจไม่มี takenAt => ทุกตัวต้องคืนค่าว่าง/null ได้ ไม่ใช่โชว์ Invalid Date */
+function dbFmtDateTimeTH(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const datePart = d.toLocaleDateString('th-TH-u-ca-gregory', { day: 'numeric', month: 'short', year: 'numeric' });
+  return datePart + ' ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+}
+function dbFmtTimeTH(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+}
+/* 'unknown' = ตอนบันทึกอ่าน session ไม่ได้ — ถือว่าไม่รู้ชื่อ ไม่ใช่ชื่อคน */
+function dbWho(snap) {
+  const w = snap && snap.enteredBy;
+  return (!w || w === 'unknown') ? '' : String(w);
+}
+/* แถวที่ takenAt ใหม่สุดในชุด (เทียบ ISO เป็นสตริงได้ตรง ๆ) */
+function dbLastEdited(snaps) {
+  let best = null;
+  (snaps || []).forEach(s => {
+    if (!s || !s.takenAt) return;
+    if (!best || String(s.takenAt) > String(best.takenAt)) best = s;
+  });
+  return best;
+}
+
 function fmtDateInput(iso) {
   if (!iso) return '';
   return iso.length >= 10 ? iso.slice(0, 10) : iso;
@@ -101,6 +134,19 @@ function DiffBadge({ delta }) {
     }}>
       {delta > 0 ? '▲' : '▼'} {fmtNum(Math.abs(delta), 2)}
     </span>
+  );
+}
+
+/* บรรทัดเล็กใต้ป้าย "✓ บันทึกแล้ว" — เวลาที่คีย์ + ชื่อคนคีย์ (เต็ม ๆ อยู่ใน tooltip) */
+function DbStampLine({ snap }) {
+  if (!snap || !snap.takenAt) return null;
+  const who = dbWho(snap);
+  return (
+    <div title={'บันทึก ' + dbFmtDateTimeTH(snap.takenAt) + (who ? ' โดย ' + who : '')}
+      style={{ fontSize: 10, lineHeight: 1.35, marginTop: 3, color: 'var(--ink-400)' }}>
+      {dbFmtTimeTH(snap.takenAt)} น.
+      {who ? <div style={{ color: 'var(--ink-500)', fontWeight: 600, overflowWrap: 'anywhere' }}>{who}</div> : null}
+    </div>
   );
 }
 
@@ -214,7 +260,7 @@ function DailyBalanceEntryPage({ data, setData, toast }) {
     // latestHold = ค่าที่โชว์คอลัมน์ "HOLD ล่าสุด" เสมอ: snapshot วันก่อนถ้ามี, ไม่งั้น fallback HOLD_AMOUNT
     const latestHold = yestHold != null ? yestHold : (Number(a.HOLD_AMOUNT) || 0);
     const available = (newBal != null ? newBal : (yestBal || 0)) - (hold || 0);
-    return { a, ac, yestBal, newBal, delta, hold, yestHold, latestHold, available, saved: !!todayByAc[ac] };
+    return { a, ac, yestBal, newBal, delta, hold, yestHold, latestHold, available, saved: !!todayByAc[ac], snap: todayByAc[ac] || null };
   });
 
   const mainRows    = rowsWithDiff(accountsByType.main);
@@ -391,6 +437,13 @@ function DailyBalanceEntryPage({ data, setData, toast }) {
     [snapshots]);
   const isBackdated = !!newestAnySnap && entryDate < newestAnySnap;
 
+  /* ★ ใครบันทึกล่าสุดเมื่อไหร่ — เอาของ "วันที่กำลังเปิดอยู่" ก่อน · วันนั้นยังไม่มีใครบันทึก
+   *   ค่อยบอกครั้งล่าสุดของทั้งตาราง ไม่งั้นเปิดวันที่ยังว่างแล้วแถบหายไปเลย */
+  const lastEditedOfDate = dbMemo(
+    () => dbLastEdited(snapshots.filter(s => s && s.date === entryDate)),
+    [snapshots, entryDate]);
+  const lastEditedAny = dbMemo(() => dbLastEdited(snapshots), [snapshots]);
+
   const weekend = isWeekend(entryDate);
 
   // ปุ่ม ▲▼ จัดลำดับบัญชี (เฉพาะคนแก้ได้) — โชว์ในเซลล์ # คู่กับเลขลำดับ
@@ -428,6 +481,24 @@ function DailyBalanceEntryPage({ data, setData, toast }) {
               </span>
             )}
           </div>
+          {/* ★ อัปเดตล่าสุดเมื่อไหร่/โดยใคร — ทรงเดียวกับ DataFreshnessBadge ของหน้า DATA อื่น */}
+          {(lastEditedOfDate || lastEditedAny) && (() => {
+            const snap = lastEditedOfDate || lastEditedAny;
+            const who  = dbWho(snap);
+            return (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5,
+                color: 'var(--ink-500)', background: 'var(--ink-100)',
+                border: '1px solid var(--ink-200)', borderRadius: 999, padding: '4px 10px', marginTop: 6,
+              }}>
+                <Icon name="daily" size={13} />
+                {lastEditedOfDate
+                  ? <>อัปเดตล่าสุด {dbFmtDateTimeTH(snap.takenAt)}</>
+                  : <>วันที่นี้ยังไม่มีใครบันทึก · ครั้งล่าสุดคือยอดวันที่ {fmtDate(snap.date)} เมื่อ {dbFmtDateTimeTH(snap.takenAt)}</>}
+                {who ? <> · โดย <strong style={{ color: 'var(--ink-700)' }}>{who}</strong></> : null}
+              </div>
+            );
+          })()}
         </div>
         <div className="page-head-r">
           <YmdPicker value={entryDate} onChange={v => setEntryDate(v || todayISO())} size="sm" />
@@ -539,7 +610,7 @@ function DailyBalanceEntryPage({ data, setData, toast }) {
                 ใช้ได้จริง<br/><span style={{ fontSize: 9, fontWeight: 400, color: 'var(--ink-500)' }}>ยอด−HOLD</span>
               </th>
               <th style={{ width: 50 }}></th>
-              <th style={{ width: 95, textAlign: 'center' }}>สถานะ</th>
+              <th style={{ width: 118, textAlign: 'center' }}>สถานะ</th>
             </tr>
           </thead>
           <tbody>
@@ -615,15 +686,18 @@ function DailyBalanceEntryPage({ data, setData, toast }) {
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     {r.saved
-                      ? <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <Badge kind="b-green" dot={false}>✓ บันทึกแล้ว</Badge>
-                          {canEdit && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => deleteOne(r.ac)}
-                              title="ยกเลิก/ลบยอดที่บันทึกวันนี้" style={{ padding: '2px 6px', fontSize: 11, color: 'var(--bad)' }}>
-                              ✕
-                            </button>
-                          )}
-                        </div>
+                      ? <React.Fragment>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Badge kind="b-green" dot={false}>✓ บันทึกแล้ว</Badge>
+                            {canEdit && (
+                              <button className="btn btn-ghost btn-sm" onClick={() => deleteOne(r.ac)}
+                                title="ยกเลิก/ลบยอดที่บันทึกวันนี้" style={{ padding: '2px 6px', fontSize: 11, color: 'var(--bad)' }}>
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                          <DbStampLine snap={r.snap} />
+                        </React.Fragment>
                       : (draft[r.ac] !== undefined && draft[r.ac] !== ''
                           ? <button className="btn btn-primary btn-sm" onClick={() => saveOne(r.ac)} disabled={!canEdit}
                               style={{ padding: '3px 10px', fontSize: 11 }}>บันทึก</button>
@@ -666,7 +740,7 @@ function DailyBalanceEntryPage({ data, setData, toast }) {
                 <th style={{ width: 140, textAlign: 'right' }}>ยอดล่าสุด</th>
                 <th style={{ width: 180, textAlign: 'right' }}>ยอดใหม่ (ถ้าเปลี่ยน)</th>
                 <th style={{ width: 110, textAlign: 'right' }}>Δ</th>
-                <th style={{ width: 100, textAlign: 'center' }}>สถานะ</th>
+                <th style={{ width: 118, textAlign: 'center' }}>สถานะ</th>
               </tr>
             </thead>
             <tbody>
@@ -697,15 +771,18 @@ function DailyBalanceEntryPage({ data, setData, toast }) {
                   <td style={{ textAlign: 'right' }}><DiffBadge delta={r.delta} /></td>
                   <td style={{ textAlign: 'center' }}>
                     {r.saved
-                      ? <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <Badge kind="b-green" dot={false}>✓</Badge>
-                          {canEdit && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => deleteOne(r.ac)}
-                              title="ยกเลิก/ลบยอดที่บันทึกวันนี้" style={{ padding: '2px 6px', fontSize: 11, color: 'var(--bad)' }}>
-                              ✕
-                            </button>
-                          )}
-                        </div>
+                      ? <React.Fragment>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Badge kind="b-green" dot={false}>✓</Badge>
+                            {canEdit && (
+                              <button className="btn btn-ghost btn-sm" onClick={() => deleteOne(r.ac)}
+                                title="ยกเลิก/ลบยอดที่บันทึกวันนี้" style={{ padding: '2px 6px', fontSize: 11, color: 'var(--bad)' }}>
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                          <DbStampLine snap={r.snap} />
+                        </React.Fragment>
                       : (draft[r.ac] !== undefined && draft[r.ac] !== ''
                           ? <button className="btn btn-primary btn-sm" onClick={() => saveOne(r.ac)} disabled={!canEdit}
                               style={{ padding: '3px 10px', fontSize: 11 }}>บันทึก</button>
@@ -728,6 +805,7 @@ function DailyBalanceEntryPage({ data, setData, toast }) {
           <li>บัญชีสำรอง (dormant) ไม่ต้องกรอกทุกวัน — กรอกเฉพาะเมื่อมีค่าธรรมเนียมตัด/โอนระหว่างบัญชี</li>
           <li>เมื่อบันทึก — ยอดใน "DATA BANK" จะ update ให้ตรงด้วยอัตโนมัติ</li>
           <li>ปุ่ม ▲▼ ในช่อง # = จัดลำดับบัญชี (sync ทั้งทีม, เฉพาะ manager/staff)</li>
+          <li>ใต้ป้าย "✓ บันทึกแล้ว" = เวลาและชื่อคนที่คีย์ยอดบัญชีนั้น · แถบบนหัวหน้า = การบันทึกล่าสุดของวันที่เลือก</li>
           <li>ตั้งค่าใครจะได้รับเตือน — ไปที่ "จัดการผู้ใช้" → tick "🔔 เตือนบันทึกยอดรายวัน"</li>
         </ul>
       </div>

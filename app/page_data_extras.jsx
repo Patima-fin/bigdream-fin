@@ -1714,6 +1714,7 @@ function DataBankPage({ data, setData, toast }) {
       title: 'DATA BANK · บัญชีธนาคาร',
       sub: 'RAW_BANK_BALANCE · ยอดคงเหลือบัญชีธนาคาร · วาง RAW ได้เลย',
       dataKey: 'bankAccounts',
+      trackFreshness: true,   // โชว์ "อัปเดตล่าสุดเมื่อไหร่/โดยใคร" ที่หัวหน้า (stamp ใน save)
       addLabel: 'เพิ่มบัญชี',
       singular: 'บัญชี',
       searchPlaceholder: 'ค้นหาธนาคาร/เลขที่บัญชี…',
