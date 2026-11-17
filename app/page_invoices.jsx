@@ -10,6 +10,61 @@
 
 const { useState: ivState, useMemo: ivMemo, useRef: ivRef, useEffect: ivEffect } = React;
 
+// ── "อัปเดตล่าสุดเมื่อไหร่ / โดยใคร" ของหน้าลูกหนี้คงค้าง ──────────────────────
+// ทรงเดียวกับแถบของหน้าเจ้าหนี้คงค้าง (DataFreshnessBadge ใน page_data_extras.jsx)
+// ⚠️ ตั้งชื่อ iv* ของไฟล์ตัวเอง **ไม่เรียก dxStampMeta / DataFreshnessBadge ข้ามไฟล์** —
+//    index.html โหลด page_invoices.jsx ก่อน page_data_extras.jsx ลำดับเปลี่ยนเมื่อไหร่หน้านี้ตายทันที
+function ivCurrentUsername() {
+  try {
+    const s = JSON.parse(localStorage.getItem('bdh-session') || 'null');
+    return (s && s.username) || '';
+  } catch (_) { return ''; }
+}
+function ivFmtDateTimeTH(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';   // ⚠️ แปลงไม่ได้ = คืนค่าว่าง ไม่ใช่ปล่อยให้โชว์ "Invalid Date"
+  const datePart = d.toLocaleDateString('th-TH-u-ca-gregory', { day: 'numeric', month: 'short', year: 'numeric' });
+  const timePart = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} ${timePart} น.`;
+}
+// stamp ผู้แก้ไข + เวลา ลงในแถว — invoices เก็บทั้งแถวเป็น JSONB (data) ใน Supabase
+// ฟิลด์ updatedBy/updatedAt จึงติดไปกับแถวได้เลย ไม่ต้องแก้ schema/backend
+// (AUDIT_SKIP_FIELDS ใน data_supabase.js ข้าม 2 ฟิลด์นี้อยู่แล้ว → Audit Log ไม่มีรายการขยะ)
+function ivStampMeta(row) {
+  return { ...row, updatedBy: ivCurrentUsername(), updatedAt: new Date().toISOString() };
+}
+// หาแถวที่ updatedAt ใหม่สุดจากในหน่วยความจำ (Supabase โหลดทั้งชุดมาแล้ว)
+// ⚠️ ใบเก่าที่นำเข้าไว้ก่อนมีฟีเจอร์นี้ไม่มี updatedAt → แถบไม่โชว์จนกว่าจะมีคนนำเข้า/แก้ครั้งถัดไป
+function IvFreshnessBadge({ rows }) {
+  const info = ivMemo(() => {
+    if (!Array.isArray(rows)) return null;
+    let best = null;
+    for (const r of rows) {
+      const t = r && r.updatedAt;
+      if (!t) continue;
+      if (!best || String(t) > String(best.updatedAt)) best = r;
+    }
+    return best ? { updatedAt: best.updatedAt, updatedBy: best.updatedBy || null } : null;
+  }, [rows]);
+
+  if (!info || !info.updatedAt) return null;
+  const when = ivFmtDateTimeTH(info.updatedAt);
+  if (!when) return null;
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5,
+      color: 'var(--ink-500)', background: 'var(--ink-100)',
+      border: '1px solid var(--ink-200)', borderRadius: 999, padding: '4px 10px', marginTop: 6,
+    }}
+      title={`ข้อมูลใบแจ้งหนี้ถูกนำเข้า/แก้ไขล่าสุด ${when}${info.updatedBy ? ' โดย ' + info.updatedBy : ''}`}>
+      <Icon name="daily" size={13} />
+      อัปเดตล่าสุด {when}
+      {info.updatedBy ? <> · โดย <strong style={{ color: 'var(--ink-700)' }}>{info.updatedBy}</strong></> : null}
+    </div>
+  );
+}
+
 // ── normalizeJobNo: ตัด productType suffix ออกจาก jobNo ──────────────────────
 // INS049-PL  → { jobNo: 'INS049',  productType: 'PL'    }
 // SV-878-PL  → { jobNo: 'SV-878',  productType: 'PL'    }
@@ -527,7 +582,9 @@ function InvoicesPage({ data, setData, toast }) {
     pendingNet: rows.filter(r => r.status !== 'paid').reduce((s, r) => s + (Number(r.netExpected) || 0), 0),
   };
 
-  const save = (iv) => {
+  const save = (iv0) => {
+    // ★ stamp "ใครแก้ เมื่อไหร่" ติดไปกับใบ — แถบ IvFreshnessBadge ที่หัวหน้าอ่านจากฟิลด์นี้
+    const iv = ivStampMeta(iv0);
     // Capture the freshly-updated data inside the setData updater so we can
     // pass it directly to forceSyncNow without depending on localStorage
     // being synced (race condition: localStorage save happens via useEffect
@@ -668,6 +725,7 @@ function InvoicesPage({ data, setData, toast }) {
         <div>
           <h1 className="page-title">ลูกหนี้คงค้าง</h1>
           <div className="page-sub">RAW_IV_OUTSTANDING · {rows.length} ใบ · ผู้ดูแล: ฝ่ายติดตามรับเงิน</div>
+          <IvFreshnessBadge rows={data.invoices} />
         </div>
         <div className="page-head-r">
           <button className="btn btn-ghost" onClick={() => setFullscreen(true)}
@@ -1136,16 +1194,18 @@ function InvoicesPage({ data, setData, toast }) {
           const delIds = (deleteIds || []).filter(x => x != null);
           const delSet = new Set(delIds.map(String));
           if (delIds.length && !confirm(`จะลบใบแจ้งหนี้ ${delIds.length} ใบที่ไม่มีในไฟล์ออกจากระบบ — ลบแล้วกู้คืนไม่ได้ ยืนยันไหม?`)) return;
+          const importedBy = ivCurrentUsername();
+          const importedAt = new Date().toISOString();
           let updatedData;
           setData(d => {
             let invoices = d.invoices;
             if (patchRows.length > 0) {
               const patchById = Object.fromEntries(patchRows.map(p => [p.id, p]));
-              invoices = invoices.map(iv => patchById[iv.id] ? { ...iv, ...patchById[iv.id] } : iv);
+              invoices = invoices.map(iv => patchById[iv.id] ? { ...iv, ...patchById[iv.id], updatedBy: importedBy, updatedAt: importedAt } : iv);
             }
             if (delSet.size > 0) invoices = invoices.filter(iv => !delSet.has(String(iv.id)));
             if (newRows.length > 0) {
-              invoices = [...newRows.map(r => ({ ...r, id: WTPData.newId() })), ...invoices];
+              invoices = [...newRows.map(r => ({ ...r, id: WTPData.newId(), updatedBy: importedBy, updatedAt: importedAt })), ...invoices];
             }
             updatedData = { ...d, invoices };
             return updatedData;
@@ -1616,11 +1676,11 @@ function ivCancelReceive(o) {
   ];
   if (!confirm(lines.join('\n'))) return false;
 
-  const cleared = Object.assign({}, iv, {
+  const cleared = ivStampMeta(Object.assign({}, iv, {
     status:            o.revertStatus || 'tracking',
     actualReceive:     null,
     actualReceiveDate: '',
-  });
+  }));
   // CRITICAL: อ่าน d.receipts ใน updater (ไม่ใช่ closure) — closure อาจ stale ถ้า server
   // push ข้อมูลมาระหว่างทาง → snapshot เก่าทับของใหม่
   let updatedData;
@@ -3364,7 +3424,8 @@ function IvReportStandalonePage({ data, setData, toast }) {
   const [detail, setDetail] = React.useState(null);
   const [payModal, setPayModal] = React.useState(null);
 
-  const save = (iv) => {
+  const save = (iv0) => {
+    const iv = ivStampMeta(iv0);
     let updatedData;
     setData(d => {
       const newInvoices = iv.id
