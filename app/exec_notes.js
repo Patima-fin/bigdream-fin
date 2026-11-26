@@ -18,6 +18,9 @@
      → window.exnMountFin(which, {...ข้อมูลที่หน้าคิดแล้ว}) · ออกจากหน้า → window.exnUnmount()
    ★ BIO ต่างจาก POG: งบกำไรขาดทุนเขียนตามกล่องของหน้า BIO (Pareto/กราฟรายเดือน/คะแนนสุขภาพ/CFO Insight ·
      ไม่มีงบประมาณ · ต้นทุนขาย ไม่ใช่ต้นทุนงานก่อสร้าง) · ส่วนงบกระแสเงินสด/งบฐานะใช้ชุดเดียวกับ POG
+   ★ แผงบทพูดเลือกได้ 3 แบบ (Benya 2026-11-26 · ผู้ใช้: "แบ่งเป็น 3 แบบ และเลือกได้ว่าอยากอ่านบทไหน"): ทุกกรอบมี "บทพูด" (F[k].script =
+     ประโยคอ่านออกเสียง มีตัวเลขบนจอครบ) เพิ่มจากบทวิเคราะห์ (F[k].say) → 🎤 พูด + ✦ วิเคราะห์ (แยก 2 กรอบ) · ✦ วิเคราะห์อย่างเดียว ·
+     🎤 พูดรวมวิเคราะห์ (ค่าเริ่มต้น = บทพูด + บทวิเคราะห์ไม่เกิน 2 ข้อ · exnTalk) — ดูหัวข้อ "แผงมี 3 แบบ" ก่อน exnScriptToggle
      — ถ้าแก้คำพูดสองส่วนนั้น ให้แก้คู่กับ frontend/app/exec_notes.js ของ waterpog-fin
    ★ กล่อง/แผงแบบ Benya ล่าสุด (2026-11-26 ผู้ใช้ขอ "แก้ไขกรอบข้อความ…เหมือนเบญญา"): กล่องไม่มีแถบเลื่อน (ยาว = ขยายกว้าง · exnPlace)
      + แผง "บทพูดทั้งหน้า" ด้านซ้าย (สวิตช์ในเมนู ✦ · ทีละเรื่อง · ปุ่ม ‹ ก่อน / ถัดไป › ทีละกรอบทุกแท็บ)
@@ -185,7 +188,7 @@
   const EXN_AD    = /โฆษณา|อินฟลู|ads?\b|advert|influencer/i;
   const EXN_SALES = /^(รายรับเกี่ยวกับช่องทาง|เงินสดรับจากการขาย)/;   // ★ POG: "เงินสดรับจากการขาย…"
   const EXN_INCAT = /^(รายรับ|เงินสดรับ)/;  // ★ POG: หมวดรับของ POG ขึ้นต้น "เงินสดรับ"          // หมวดฝั่งรายรับ (ไม่นับเป็นรายจ่าย)
-  function exnCatShort(c){ return String(c||"").replace(/^(รายจ่าย|รายการจ่าย|รายรับ)เกี่ยว(กับ)?\s*/, "").replace(/^เงินสด(รับ|จ่าย)\s*(เกี่ยวกับ|จาก)?\s*-?\s*/, "").trim() || String(c||""); }   // ★ POG: ตัด "เงินสดจ่าย(เกี่ยวกับ)-"
+  function exnCatShort(c){ return String(c||"").replace(/^(รายจ่าย|รายการจ่าย|รายรับ)เกี่ยว(กับ)?\s*/, "").replace(/^เงินสด(รับ|จ่าย)\s*(เกี่ยวกับ|จาก)?\s*-?\s*/, "").replace(/^เกี่ยวกับ\s*/, "").trim() || String(c||""); }   // ★ POG: ตัด "เงินสดจ่าย(เกี่ยวกับ)-" · "เงินสดจ่าย-เกี่ยวกับสั่งซื้อถัง" → "สั่งซื้อถัง"
   function exnCatNet(txs, act){
     const g = {};
     for(const t of txs){ if(act && t.activityKey !== act) continue; const x = g[t.category] = g[t.category] || { in:0, out:0 }; x.in += t.in; x.out += t.out; }
@@ -291,6 +294,12 @@
        · "เงินสดปลายงวด" ยังไม่เกิน 3 ข้อ (ผู้ใช้ขอ 2026-11-25) */
     const per = S.kind === "month" ? "เดือนนี้" : "ช่วงนี้";
     const avgM = v => n > 1 ? ` หรือเฉลี่ยเดือนละ ${exnAmt(v / n)}` : "";
+    /* ★ บทพูด (script) แบบ Benya (2026-11-26 ผู้ใช้: "แบ่งเป็น 3 แบบ และเลือกได้ว่าอยากอ่านบทไหน") = F[k].script ต่อท้ายทุกกรอบ
+         ประโยคอ่านออกเสียงได้ทันที มีตัวเลขบนจอครบ (ชุดเดียวกับที่จอวาด) · ภาษาพูดมีคำเชื่อมระหว่างหัวข้อ · ไม่ใส่ค่ะ/ครับ (ผู้นำเสนอหลายคน)
+         ขึ้นในแผงบทพูดแบบ "🎤 พูด + ✦ วิเคราะห์" และ "🎤 พูดรวมวิเคราะห์" (exnTalk) · กล่องที่เด้งข้างกรอบยังเป็นบทวิเคราะห์อย่างเดียว */
+    const bA = v => `**${exnAmt(v)}**`;
+    const inP = S.kind === "month" ? "ในเดือนนี้" : "ในช่วงนี้";
+    const hasOC = A.opening != null && A.closing != null, cUp = hasOC && A.closing >= A.opening;
 
     /* 1) พูดเปิด */
     {
@@ -301,7 +310,10 @@
       s.push(op < 0 && finIn > 0 ? "ประเด็นหลักที่อยากให้เห็นวันนี้มีสองเรื่อง คือ **การดำเนินงานยังใช้เงินมากกว่าที่หาได้** และ!!บริษัทยังพึ่งเงินกู้เป็นแหล่งเงินหลัก!!"
         : op < 0 ? "ประเด็นหลักที่อยากให้เห็นวันนี้คือ **การดำเนินงานยังใช้เงินมากกว่าที่หาได้**" + (d != null && d < 0 ? " เงินสดจึงลดลง" : " แต่มีเงินจากแหล่งอื่นเข้ามาชดเชย")
         : "ประเด็นหลักที่อยากให้เห็นวันนี้คือ **การดำเนินงานสร้างเงินสดได้เอง**" + (finIn > 0 ? " และมีเงินกู้เข้ามาเสริมสภาพคล่อง" : ""));
-      F["summary.brief"] = { say: s };
+      F["summary.brief"] = { say: s,
+        script: `ขอเริ่มที่งบกระแสเงินสดของบริษัท ${S.kind === "all" ? "" : "สำหรับ"}${S.name}` +
+          (hasOC ? ` ภาพรวม${inP} เงินสดของบริษัท${cUp ? "เพิ่มขึ้น" : "ลดลง"}จาก ${bA(A.opening)} มาอยู่ที่ ${bA(A.closing)}` : "") +
+          " ซึ่งจะขอไล่ให้ดูทีละส่วนว่าเงินเข้ามาจากไหน และจ่ายออกไปที่ใดบ้าง" };
     }
 
     /* 2) ภาพรวมรับ–จ่าย — พูดได้แค่ เงินรับรวม · เงินจ่ายรวม · กระแสเงินสดสุทธิ */
@@ -315,7 +327,9 @@
       if(A.totalIn > 0){ const r = Math.round(A.totalOut / A.totalIn * 100); s.push(`ถ้ามองในภาพรวม ทุก 100 บาทที่รับเข้ามา บริษัท${r > 100 ? `!!จ่ายออกไป ${r} บาท!! เงินสดจึงลดลง` : `**จ่ายออกไป ${r} บาท** ยังมีเงินเหลือ ${100 - r} บาท`}`); }
       s.push(finIn > 0 ? "ทั้งนี้ เงินรับรวมตัวนี้นับรวมทุกแหล่ง **ยังไม่ได้แยกว่ามาจากการขายหรือเงินกู้** ซึ่งจะแยกให้ดูในหัวข้อกระแสเงินสดแยกตามกิจกรรม"
         : "ต่อไปจะดูว่าผลรับ–จ่ายนี้ ทำให้เงินสดปลายงวดเหลือเท่าไร และพอใช้ได้อีกนานแค่ไหน");
-      F["summary.overview"] = { say: s };
+      F["summary.overview"] = { say: s,
+        script: `เริ่มจากภาพรวมก่อน ${inP}บริษัทมีเงินรับเข้ามาทั้งหมด ${bA(A.totalIn)} ขณะที่จ่ายออกไป ${bA(A.totalOut)} เมื่อหักกันแล้ว` +
+          (Math.abs(A.net) < 1 ? "เงินรับกับเงินจ่ายจึงเท่ากันพอดี" : A.net < 0 ? `เงินจ่ายจึงสูงกว่าเงินรับอยู่ ${bA(A.net)}` : `เงินรับยังสูงกว่าเงินจ่ายอยู่ ${bA(A.net)}`) };
     }
 
     /* 3) เงินสดปลายงวด — ★ (2026-11-25 ผู้ใช้ขอ) คิดจาก "เงินที่ใช้ได้จริง" บอกว่าใช้ได้กี่บาท · ไม่เกิน 3 ข้อ
@@ -339,7 +353,9 @@
         }
       }
       if(P && S.kind === "year" && P.closing != null){ const dd = A.closing - P.closing; s.push(`และเมื่อเทียบกับสิ้น${exnMonFull(S.prev[S.prev.length-1])}ปีก่อน เงินสดตอนนี้${dd >= 0 ? "**สูงกว่า**" : "!!ต่ำกว่า!!"}ราว ${exnAmt(dd)}`); }
-      F["summary.ending"] = { say: s.slice(0, 3) };
+      F["summary.ending"] = { say: s.slice(0, 3),
+        script: hasOC ? `ส่วนเงินสดปลายงวด ตอนต้นงวดบริษัทมีเงินสดอยู่ ${bA(A.opening)} พอถึงสิ้นงวด${cUp ? "มีอยู่" : "เหลืออยู่"} ${bA(A.closing)} หรือ${cUp ? "เพิ่มขึ้น" : "ลดลงไป"} ${bA(d)}` +
+          (pct != null && Math.abs(pct) < 1000 ? ` คิดเป็น **${exnP(pct)}**` : "") : "" };
     }
 
     /* 4) กระแสเงินสดแยกตามกิจกรรม (+ waterfall) */
@@ -363,7 +379,11 @@
         s.push(`ส่วนที่ขาดทั้งหมดนี้ บริษัท**เติมด้วยเงินกู้**${src} ` + (noLoan < 0 ? `ซึ่งถ้าไม่มีเงินกู้ !!เงินสดปลายงวดจะติดลบราว ${exnAmt(noLoan)}!!` : `ซึ่งถ้าไม่มีเงินกู้ เงินสดปลายงวดจะเหลือเพียง ${exnAmt(noLoan)}`));
       } else if(finIn > 0) s.push(`ด้านกิจกรรมจัดหาเงิน ${per}มีเงินกู้เข้ามาราว ${exnAmt(finIn)}${src ? " " + src : ""} ทำให้เงินสดเพิ่มขึ้นมากกว่าที่ธุรกิจหาได้เอง`);
       else if(fin < -1000) s.push(`ด้านกิจกรรมจัดหาเงิน ${per}ไม่มีเงินกู้ใหม่เข้ามา และบริษัทจ่ายชำระเงินกู้สุทธิราว ${exnAmt(fin)}`);
-      F["summary.acts"] = { say: s };
+      const part = (lbl, v, inTxt, outTxt) => Math.abs(v) < 1 ? `${lbl}ไม่มีรายการ` : `${lbl}${v < 0 ? outTxt : inTxt} ${bA(v)}`;
+      F["summary.acts"] = { say: s,
+        script: `ทีนี้ถ้าแยกดูตามกิจกรรม ${part("ฝั่งการดำเนินงาน", op, "สร้างเงินสดได้สุทธิ", "ใช้เงินไปสุทธิ")} ${part("ส่วนการลงทุน", inv, "ได้เงินกลับมาสุทธิ", op < 0 ? "ใช้เงินไปอีก" : "ใช้เงินไป")}` +
+          ` และ${part("ด้านการจัดหาเงิน", fin, "มีเงินเข้ามาสุทธิ", "จ่ายออกไปสุทธิ")}${fin > 0 && finIn > 0 ? " ซึ่งเป็นเงินที่จัดหาเข้ามาเพิ่ม" : ""}` +
+          ` เมื่อรวมทั้งสามส่วนแล้ว กระแสเงินสดสุทธิจึง${A.net < 0 ? "ติดลบ" : "เป็นบวก"} ${bA(A.net)} อย่างที่เห็นในภาพรวม` };
     }
 
     /* 5) กราฟกระแสเงินสดรายเดือน */
@@ -381,7 +401,8 @@
         const bI = opM.reduce((b,v,i) => v > opM[b] ? i : b, 0);
         const cw = exnCatNet(txOf([wk]), "operating"), ca = exnCatNet(txOf(ms), "operating");
         const dev = Object.keys(cw).filter(k => !EXN_INCAT.test(k)).map(k => ({ k, d: (cw[k].out - cw[k].in) - ((ca[k] ? ca[k].out - ca[k].in : 0) / ms.length) })).sort((x,y) => y.d - x.d)[0];
-        if(opM[wI] < 0) s.push(`เดือนที่หนักที่สุดคือ**${mon(wk)}** ใช้เงินสุทธิราว ${exnAmt(opM[wI])}` + (dev && dev.d > 5000 ? ` สาเหตุหลักมาจาก${sh(dev.k)} ที่สูงกว่าปกติราว ${exnAmt(dev.d)}` : "") +
+        // ★ "ถ้าดูเฉพาะการดำเนินงาน" (ยก Benya 2026-11-26) — บทพูดของกรอบนี้พูดเดือนที่ดี/แย่ที่สุดแบบรวมทุกกิจกรรม (ตัวเลขใต้กราฟ) คนละแบบกับข้อนี้
+        if(opM[wI] < 0) s.push(`ถ้าดูเฉพาะการดำเนินงาน เดือนที่หนักที่สุดคือ**${mon(wk)}** ใช้เงินสุทธิราว ${exnAmt(opM[wI])}` + (dev && dev.d > 5000 ? ` สาเหตุหลักมาจาก${sh(dev.k)} ที่สูงกว่าปกติราว ${exnAmt(dev.d)}` : "") +
           (opM[bI] > 0 && bI !== wI ? ` ส่วนเดือนที่ดีที่สุดคือ${mon(ms[bI])} รับสุทธิราว ${exnAmt(opM[bI])}` : ""));
       }
       if(ms.length >= 6){
@@ -392,7 +413,20 @@
       }
       const fm = ms.filter((k,i) => finM[i] > 0);
       if(fm.length) s.push(fm.length === ms.length ? "ส่วนเงินกู้ !!มีเข้ามาทุกเดือน!! สะท้อนว่าบริษัทต้องพึ่งเงินกู้อย่างต่อเนื่อง" : `ส่วนเงินกู้ มีเข้ามา ${fm.length} จาก ${ms.length} เดือน` + (fm.length >= ms.length * 0.6 ? " ซึ่ง!!สะท้อนว่าต้องพึ่งเงินกู้ต่อเนื่อง!!" : ""));
-      F["summary.monthly"] = { say: s };
+      /* บทพูด: ตัวเลขใต้กราฟ = สุทธิรวมทุกกิจกรรม (รวมเงินกู้) · ถ้าเดือนที่การดำเนินงานใช้เงินมากที่สุดเป็นคนละเดือน พูดทั้งสองแบบ
+         (Benya เจอ 2026-11-26: บทพูดบอกมกราคม บทวิเคราะห์บอกตุลาคม) */
+      let scr = "";
+      if(ms.length >= 2){
+        const nets = ms.map(k => Number(MA[k].net) || 0);
+        const bI = nets.reduce((x,v,i) => v > nets[x] ? i : x, 0), wI = nets.reduce((x,v,i) => v < nets[x] ? i : x, 0);
+        const oW = opM.reduce((x,v,i) => v < opM[x] ? i : x, 0);
+        const loanIn = k => MA[k].byAct.financing.in > 0;
+        const best = nets[bI] >= 0 ? `เดือนที่ดีที่สุดคือ${mon(ms[bI])} ซึ่งเงินสดสุทธิเป็นบวก ${bA(nets[bI])}${loanIn(ms[bI]) ? " โดยรวมเงินกู้ที่เข้ามาในเดือนนั้นด้วย" : ""}` : `เดือนที่ติดลบน้อยที่สุดคือ${mon(ms[bI])} อยู่ที่ ${bA(nets[bI])}`;
+        const worst = nets[wI] < 0 ? `ส่วนเดือนที่ติดลบมากที่สุดคือ${mon(ms[wI])} ที่ ${bA(nets[wI])}` : `ส่วนเดือนที่น้อยที่สุดคือ${mon(ms[wI])} ซึ่งยังเป็นบวก ${bA(nets[wI])}`;
+        const opW = opM[oW] < 0 ? (oW === wI ? ` ซึ่งเป็นเดือนที่การดำเนินงานใช้เงินมากที่สุดด้วย ราว ${bA(opM[oW])}` : ` แต่ถ้าดูเฉพาะการดำเนินงาน เดือนที่ใช้เงินมากที่สุดคือ${mon(ms[oW])} ที่ใช้เงินไปสุทธิ ${bA(opM[oW])}${loanIn(ms[oW]) ? " ซึ่งเดือนนั้นมีเงินกู้เข้ามาช่วย ตัวเลขรวมจึงดูไม่ติดลบมาก" : ""}`) : "";
+        scr = `ถ้าดูเป็นรายเดือนตลอด ${ms.length} เดือนที่ผ่านมา เมื่อรวมทุกกิจกรรมแล้ว ${best} ${worst}${opW}`;
+      } else if(ms.length) scr = `กราฟนี้แสดงกระแสเงินสดของเดือน${exnMonYrFull(ms[0])} โดยแยกให้เห็นทั้งสามกิจกรรม`;
+      F["summary.monthly"] = { say: s, script: scr };
     }
 
     /* 6) KPI ทางการเงิน */
@@ -418,7 +452,15 @@
       if(opEx != null && opEx > 80) s.push(`ถ้าจะให้กลับเข้าเกณฑ์ 80% บริษัทต้อง**เพิ่มยอดขายเป็นราว ${exnAmt(opOut / 0.8 / n)}ต่อเดือน** หรือ**ลดเงินจ่ายลงราว ${exnAmt((opOut - opIn * 0.8) / n)}ต่อเดือน**`);
       const cash = A.totalIn ? A.net / A.totalIn * 100 : null;
       if(finIn > 0 && cash != null && cash > 0 && op < 0) s.push("ข้อสังเกตคือ !!อัตรากำไรเงินสดที่เป็นบวกมาจากเงินกู้ ไม่ใช่กำไรจากการดำเนินงาน!!");
-      F["summary.kpi"] = { say: s.slice(0, 5) };
+      // บทพูด: ตามการ์ดบนจอ (อัตรากำไรเงินสด · อัตราส่วนเงินสดดำเนินงาน · อัตราใช้เงินสด/เดือน · ค่าใช้จ่ายต่อยอดขาย · สัดส่วนค่าใช้จ่ายพนักงาน)
+      const pc = v => `**${v < 0 ? "ติดลบ " : ""}${Math.abs(v).toFixed(1)}%**`;
+      const s1 = [];
+      if(A.totalIn > 0) s1.push(`อัตรากำไรเงินสดอยู่ที่ ${pc(A.net / A.totalIn * 100)}`);
+      if(opIn > 0) s1.push(`อัตราส่วนเงินสดจากการดำเนินงานอยู่ที่ ${pc(op / opIn * 100)}`);
+      s1.push(`${s1.length ? "และ" : ""}บริษัทใช้เงินเฉลี่ยเดือนละ ${bA(A.totalOut / n)}`);
+      const s2 = K.map((x, i) => `${i && i === K.length - 1 ? "และ" : ""}${x.n}อยู่ที่ ${pc(x.v)} จากเกณฑ์ไม่เกิน ${x.th}%`);
+      F["summary.kpi"] = { say: s.slice(0, 5),
+        script: `ต่อไปมาดูตัวชี้วัดทางการเงินกัน ${s1.join(" ")}` + (s2.length ? ` ส่วนในด้านค่าใช้จ่าย ${s2.join(" ")}` : "") };
     }
 
     /* 7) Category: Top 5 แยกตามกิจกรรม */
@@ -442,7 +484,12 @@
         const fresh = Object.entries(cAll).map(([k,v]) => [k, v.out - v.in]).filter(([k,v]) => v >= Math.max(100000, A.totalOut * 0.03) && !(pAll[k] && pAll[k].out > 0)).sort((a,b) => b[1] - a[1]);
         if(fresh.length) s.push(`และมีรายการใหม่ที่${cmpS}ไม่มี คือ**${exnList(fresh.slice(0,2).map(([k,v]) => `${sh(k)} ราว ${exnAmt(v)}`))}**`);
       }
-      F["category.top"] = { say: s };
+      // บทพูด: ตามโดนัท Top 5 บนจอ (A.byCat ยอดรับ/ยอดจ่ายรวมทุกกิจกรรม — ★ Benya พูดเฉพาะดำเนินงาน แต่จอ POG/Benya วาดรวมเงินกู้ด้วย)
+      const topOf = dir => Object.entries(A.byCat || {}).map(([k,v]) => [k, Number(v[dir]) || 0]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]);
+      const tOut = topOf("out"), tIn = topOf("in"), t = [];
+      if(tOut.length) t.push(`ถัดมาเป็นรายละเอียดตามหมวด ฝั่งรายจ่าย หมวดที่ใช้เงินมากที่สุดคือ${sh(tOut[0][0])} ${bA(tOut[0][1])}` + (tOut[1] ? ` รองลงมาเป็น${sh(tOut[1][0])} ${bA(tOut[1][1])}` : "") + (tOut[2] ? ` และ${sh(tOut[2][0])} ${bA(tOut[2][1])}` : ""));
+      if(tIn.length) t.push(`${tOut.length ? "ส่วนฝั่งรายรับ" : "ถัดมาเป็นรายละเอียดตามหมวด ฝั่งรายรับ"} เงินส่วนใหญ่มาจาก${sh(tIn[0][0])} ${bA(tIn[0][1])}` + (tIn[1] ? ` ตามด้วย${sh(tIn[1][0])} ${bA(tIn[1][1])}` : ""));
+      F["category.top"] = { say: s, script: t.join(" ") };
     }
 
     /* 8) ค่าใช้จ่ายที่สูงกว่าปกติ (การ์ดตรวจเดือนล่าสุดของช่วงที่เลือก) */
@@ -453,7 +500,7 @@
       else {
         const tk = an.target;
         const tgt = S.kind === "month" ? "เดือนนี้" : `เดือน${exnMonFull(tk)}ซึ่งเป็นเดือนล่าสุด`;
-        const intro = `เมื่อเทียบเงินจ่ายแต่ละหมวดของ${tgt} กับค่าเฉลี่ย 6 เดือนก่อนหน้า จะพบว่า`;
+        const intro = `เมื่อเทียบเงินจ่ายแต่ละหมวดของ${tgt} กับค่าเฉลี่ย ${an.nB || 6} เดือนก่อนหน้า จะพบว่า`;   // ★ จำนวนเดือนจริง (บทพูดพูดเลขนี้ด้วย)
         const tTx = txOf([tk]);
         const pay = cat => exnPayeesOf(tTx.filter(t => t.category === cat), "out");
         const dTot = an.curTotal - an.baseAvgTotal, mo = S.kind === "month" ? "เดือนนี้" : "เดือน" + exnMonFull(tk);
@@ -464,12 +511,17 @@
           const r0 = rows[0], p0 = pay(r0.cat)[0], r1 = rows[1];
           const totS = `ภาพรวมเงินจ่าย${mo}จึง${small ? "ใกล้เคียงค่าเฉลี่ย ต่างกันราว " : dTot >= 0 ? "!!สูงกว่า!!ค่าเฉลี่ยราว " : "**ต่ำกว่า**ค่าเฉลี่ยราว "}${exnAmt(dTot)}`;
           const s = [`${intro}หมวดที่สูงผิดปกติที่สุดคือ!!${sh(r0.cat)}!! ซึ่งเกินค่าเฉลี่ยราว ${exnAmt(r0.cur - r0.avg)}` + (p0 ? ` โดยจ่ายให้${p0.name}` : "")];
-          s.push(r0.kind === "new" ? "เป็นรายการใหม่ที่ไม่เคยมีใน 6 เดือนก่อน **จึงควรยืนยันว่าเป็นรายการครั้งเดียว**"
+          s.push(r0.kind === "new" ? `เป็นรายการใหม่ที่ไม่เคยมีใน ${an.nB || 6} เดือนก่อน **จึงควรยืนยันว่าเป็นรายการครั้งเดียว**`
             : r0.kind === "irregular" ? `รายการนี้จ่ายเพียง ${r0.seen} จาก ${r0.months} เดือน **จึงอาจเป็นแค่รอบการจ่าย** ไม่ใช่ค่าใช้จ่ายที่เพิ่มขึ้นจริง`
             : "เป็นรายการที่จ่ายทุกเดือน แต่เดือนนี้สูงขึ้น **จึงควรเช็กว่าเป็นการปรับขึ้นถาวรหรือไม่**");
           if(r1) s.push(`รองลงมาคือ${sh(r1.cat)} ซึ่งเกินค่าเฉลี่ยราว ${exnAmt(r1.cur - r1.avg)}`);
           s.push(totS);
           F["category.anomaly"] = { say: s, prompts: rows.slice(0,3).map(r => `เหตุผลที่${sh(r.cat)}สูงขึ้น`) };
+        }
+        if(an.nB){
+          const r0 = rows[0];
+          F["category.anomaly"].script = `ต่อมาเป็นการตรวจค่าใช้จ่ายที่สูงกว่าปกติ เดือน${exnMonFull(an.target)} บริษัทจ่ายรวม ${bA(an.curTotal)} ขณะที่ค่าเฉลี่ย ${an.nB} เดือนก่อนหน้าอยู่ที่ ${bA(an.baseAvgTotal)}` +
+            (r0 ? ` โดยมี ${rows.length} หมวดที่สูงกว่าปกติ ตัวที่เด่นที่สุดคือ${sh(r0.cat)} ซึ่ง${S.kind === "month" ? "เดือนนี้" : "เดือนนั้น"}จ่ายไป ${bA(r0.cur)} จากปกติราว ${bA(r0.avg)}` : " และไม่มีหมวดใดที่สูงผิดปกติ");
         }
       }
     }
@@ -489,7 +541,18 @@
         if(flows.length && A.totalOut > 0){ const same = String(flows[0].no || "") === accts[0].no; s.push(same ? `และเงินจ่าย ${exnP(flows[0].out / A.totalOut * 100)} ก็ออกจากบัญชีหลักนี้` : `ส่วนเงินจ่าย ${exnP(flows[0].out / A.totalOut * 100)} ออกจากบัญชี ${flows[0].bank} ${flows[0].no}`); }
       }
       if(tiny.length) s.push(`ข้อควรระวังคือ !!อีก ${tiny.length} บัญชีมียอดเหลือน้อย!! ถ้ามีรายการตัดจ่ายจากบัญชีเหล่านี้ ต้องโอนเงินเข้าก่อน`);
-      F["banks.accounts"] = { say: s };
+      // บทพูด: "บัญชีกสิกรไทย ลงท้าย 4863 …" (พูดเลข 4 ตัวท้ายแทนเลขบัญชีเต็ม) · ไม่เกิน 4 บัญชี ที่เหลือรวมเป็นก้อนเดียว
+      const sayAc = a => { const ac = (data.accounts || {})[a.key] || {}, dg = String(ac.no || a.key || "").replace(/\D/g, ""), bk = String(ac.bank || "").trim();
+        return "บัญชี" + (bk ? (/^[A-Za-z0-9]/.test(bk) ? " " : "") + bk : "") + (dg ? " ลงท้าย " + dg.slice(-4) : ""); };
+      const ac2 = ((mo && mo.accounts) || []).map(a => ({ key: a.accountKey, close: Number(a.closing) || 0 })).sort((a,b) => b.close - a.close);
+      const t4 = ac2.slice(0, 4), rest = ac2.slice(4), sumAll = ac2.reduce((t,a) => t + a.close, 0);
+      const amtS = v => v < 0 ? `ติดลบ ${bA(v)}` : bA(v);
+      if(ac2.length) F["banks.accounts"] = { say: s,
+        script: `สำหรับยอดเงินแยกตามบัญชี ณ สิ้น${exnMonYrFull(S.last)} บริษัทมีเงินรวม ${amtS(sumAll)} ` +
+          (ac2.length > 1 ? `กระจายอยู่ใน ${ac2.length} บัญชี โดยแบ่งอยู่ใน` + t4.map((a,i) => `${i ? (i === t4.length - 1 && !rest.length ? " และ" : " ") : ""}${sayAc(a)} ${a.close < 0 ? "ติดลบ" : "มี"} ${bA(a.close)}`).join("") +
+            (rest.length ? ` และอีก ${rest.length} บัญชีรวมกัน ${amtS(rest.reduce((t,a) => t + a.close, 0))}` : "")
+          : `ซึ่งทั้งหมดอยู่ใน${sayAc(ac2[0])}`) };
+      else F["banks.accounts"] = { say: s };
     }
 
     /* 10) Transaction Explorer */
@@ -500,13 +563,20 @@
       // รายการชื่อเดียวกันรวมเป็นก้อนเดียว ("ค่าสินค้า 3 รายการ ราว …") ไม่พูดชื่อซ้ำ 3 ครั้ง
       const nm = (w, x) => w + (/^[A-Za-z0-9]/.test(x) ? " " : "") + x;   // "ให้" + "Supplier" → "ให้ Supplier"
       const bigG = [];
-      big.forEach(t => { const who = exnPayeeName(t), lb = (exnTxDesc(t) || sh(t.category)) + (who && !(exnTxDesc(t) || "").includes(who) ? nm("ให้", who) : ""); const g = bigG.find(x => x.lb === lb); if(g) g.v.push(t.out); else bigG.push({ lb, v:[t.out] }); });
+      // ★ คำอธิบายรายการตัดหมายเหตุในวงเล็บ / หลัง * ทิ้ง (อ่านออกเสียงยาวเกิน) · ชื่อผู้รับที่อยู่ในคำอธิบายแล้ว (ต่างกันแค่คำนำหน้า/เว้นวรรค) ไม่ต่อ "ให้…" ซ้ำ
+      const dsc = t => exnTxDesc(t).replace(/\s*[(*].*$/, "").trim();
+      const hasWho = (d, w) => { const k = x => String(x || "").replace(/^(คุณ|นาย|นางสาว|นาง)\s*/, "").replace(/\s+/g, ""); return !!k(w) && k(d).includes(k(w)); };
+      big.forEach(t => { const who = exnPayeeName(t), ds = dsc(t), lb = (ds || sh(t.category)) + (who && !hasWho(ds, who) ? nm("ให้", who) : ""); const g = bigG.find(x => x.lb === lb); if(g) g.v.push(t.out); else bigG.push({ lb, v:[t.out] }); });
       F["explorer.note"] = big.length ? { say: [
         "ส่วนนี้เป็นรายการเดินบัญชีทั้งหมด ซึ่งค้นหาและกรองดูได้ทุกรายการ ขอยกเฉพาะรายการใหญ่ที่ควรรู้",
         `ฝั่งเงินจ่าย รายการใหญ่ที่สุด ${big.length} รายการรวมกันคิดเป็น**${exnP(big.reduce((t,x) => t + x.out, 0) / Math.max(1, A.totalOut) * 100)} ของเงินจ่ายทั้งหมด**`,
         `ได้แก่${exnList(bigG.map(g => g.v.length > 1 ? `${g.lb} ${g.v.length} รายการ ราว ${exnAnd(g.v.map(exnAmt))}` : `${g.lb} ราว ${exnAmt(g.v[0])}`))}`,
-        bigIn ? `ส่วนฝั่งเงินรับ รายการใหญ่ที่สุดคือ${exnTxDesc(bigIn) || sh(bigIn.category)}${inWho ? nm("จาก", inWho) : ""} ราว ${exnAmt(bigIn.in)}` : "",
+        bigIn ? `ส่วนฝั่งเงินรับ รายการใหญ่ที่สุดคือ${dsc(bigIn) || sh(bigIn.category)}${inWho && !hasWho(dsc(bigIn), inWho) ? nm("จาก", inWho) : ""} ราว ${exnAmt(bigIn.in)}` : "",
       ].filter(Boolean) } : { say: [] };
+      // บทพูด: ชวนค้นก่อน แล้วค่อยยกรายการใหญ่ (โหมด "พูดรวมวิเคราะห์" ต่อด้วยสัดส่วน 3 รายการแรก · รายการรับที่ใหญ่ที่สุด)
+      const gT = g => g.v.length > 1 ? `${g.lb} ${g.v.length} รายการ รวม ${bA(g.v.reduce((a,c) => a + c, 0))}` : `${g.lb} ${bA(g.v[0])}`;
+      F["explorer.note"].script = `หน้านี้รวบรวมรายการเงินรับและเงินจ่ายทั้งหมดของ${per}ไว้ ผู้บริหารค้นหรือกรองดูรายการไหนก็ได้ทันที` +
+        (bigG.length ? ` ขอยกเฉพาะรายการใหญ่ รายการจ่ายที่ใหญ่ที่สุดคือ${gT(bigG[0])}` + (bigG[1] ? ` รองลงมาคือ${gT(bigG[1])}` : "") : "");
     }
 
     /* 11) งบกระแสเงินสดรายเดือน */
@@ -529,7 +599,9 @@
         if(ups.length) s.push(`${vs} หมวดที่จ่ายเพิ่มขึ้นมากที่สุดคือ` + exnList(ups.map((x,i) => i === 0 ? `!!${sh(x.k)} ราว ${exnAmt(x.d)}!!` : `${sh(x.k)} ราว ${exnAmt(x.d)}`)));
         if(downs.length) s.push("ส่วนหมวดที่จ่ายลดลงคือ" + exnList(downs.map(x => `${sh(x.k)} ราว ${exnAmt(x.d)}`)));
       }
-      F["stmt.trend"] = { say: s.length > 1 ? s : [] };
+      F["stmt.trend"] = { say: s.length > 1 ? s : [],
+        script: `ส่วนงบกระแสเงินสด${n > 1 ? "รายเดือน" : ""}จะแสดงเงินรับและเงินจ่ายแยกตามหมวด${n > 1 ? "ในแต่ละเดือน" : ""} โดย${S.kind === "month" ? "เดือนนี้" : "ทั้งช่วงนี้"}การดำเนินงาน${op < 0 ? "ใช้เงินไปสุทธิ" : "สร้างเงินสดได้สุทธิ"} ${bA(op)}` +
+          (hasOC ? ` และเมื่อรวมทุกกิจกรรมแล้ว เงินสด${cUp ? "เพิ่มขึ้น" : "ลดลง"}จาก ${bA(A.opening)} ${cUp ? "เป็น" : "เหลือ"} ${bA(A.closing)}` : "") };
     }
 
     /* 12) ปิดท้าย: เงินสดเพียงพอถึงเมื่อไหร่ (คิด ณ สิ้นช่วงที่เลือก) */
@@ -553,7 +625,12 @@
         if(cash > 0) s.push(`ตอนนี้มี${UC.part ? "เงินที่ใช้ได้จริง" : "เงินสด"}ราว ${exnAmt(cash)} เพียงพอสำหรับรายจ่ายช่วงถัดไป และวางแผนใช้เงินส่วนเกินได้`);
       }
       s.push("ขอจบส่วนของกระแสเงินสดไว้เท่านี้");
-      F["stmt.close"] = { say: s, prompts: ["เรื่องที่ขอให้ผู้บริหารพิจารณา"] };
+      // บทพูด: เงินที่ใช้คิด = เงินที่ใช้ได้จริง (เหมือนบทวิเคราะห์) · เงินไม่เหลือ = บทวิเคราะห์ข้อถัดไปพูดเอง
+      let scr = `และเพื่อปิดท้าย ขอสรุปเรื่องความเพียงพอของเงินสด ณ สิ้น${exnMonYrFull(S.last)} บริษัทมีเงินสดอยู่ ${bA(A.closing)}` + (UC.part ? ` ซึ่งใช้ได้จริงราว ${bA(cash)}` : "");
+      if(burn > 0) scr += ` ในขณะที่ช่วง ${l6.length} เดือนล่าสุด การดำเนินงานรวมการลงทุนใช้เงินไปเฉลี่ยเดือนละ ${bA(burn)}` +
+        (cash > 0 ? ` หมายความว่าถ้าไม่มีเงินเข้ามาเพิ่ม ${UC.part ? "เงินที่ใช้ได้จริง" : "เงินที่มีอยู่"}จะใช้ได้อีก**ราว ${runTxt}** หรือถึงประมาณ${runOut}` : "");
+      else scr += ` และช่วง ${l6.length} เดือนล่าสุด การดำเนินงานรวมการลงทุนสร้างเงินสดได้เองเฉลี่ยเดือนละ ${bA(-burn)}`;
+      F["stmt.close"] = { say: s, prompts: ["เรื่องที่ขอให้ผู้บริหารพิจารณา"], script: scr };
     }
     return F;
   }
@@ -762,7 +839,11 @@
       const pl0 = exnMonExpand(exnStrip(b.prevLabel || "").replace(/^ณ\s*(วันที่\s*)?/, "").trim());
       const prevL = !pl0 ? "" : /^ปี/.test(pl0) ? "สิ้น" + pl0 : /^\d/.test(pl0) ? "วันที่ " + pl0 : pl0;
       const owner = EQ.replace(/^ส่วนของ/, "");
-      F["bal.brief"] = { say: [
+      // ★ บทพูด (script) แบบ Benya — ตัวเลขตามการ์ด/ตาราง/โดนัท/อัตราส่วนของหน้างบฐานะ POG
+      const bA = v => `**${exnAmt(v)}**`;
+      const eqT = T.eq == null ? "" : eqNeg ? `${EQ}ติดลบ ${bA(T.eq)}` : `${EQ} ${bA(T.eq)}`;
+      const asofS = exnMonExpand(asof);   // "31 ต.ค. 2569" → "31 ตุลาคม 2569" (อ่านออกเสียง)
+      F["bal.brief"] = { script: `ต่อไปเป็นงบแสดงฐานะการเงิน ณ ${asofS} ซึ่งจะบอกว่าบริษัทมีสินทรัพย์ หนี้สิน และทุนอยู่เท่าไร` + (eqT ? ` ในภาพรวมตอนนี้บริษัทมี${eqT}` : ""), say: [
         `ต่อไปเป็นงบแสดงฐานะการเงิน ณ ${asof} ซึ่งบอกว่าบริษัทมีสินทรัพย์อะไรบ้าง มีหนี้สินเท่าไร และเหลือเป็นทุนของ${owner}เท่าไร`,
         eqNeg ? `ประเด็นหลักคือ !!หนี้สินมากกว่าสินทรัพย์ ทำให้${EQ}ติดลบ!! ขณะที่สภาพคล่องระยะสั้น${liqOkTxt ? "**ยังพอไหว**" : "!!ค่อนข้างตึงตัว!!"}`
           : `ประเด็นหลักคือ **สินทรัพย์มากกว่าหนี้สิน ${EQ}เป็นบวก** และสภาพคล่องระยะสั้น${liqOkTxt ? "**ยังพอไหว**" : "!!ค่อนข้างตึงตัว!!"}`,
@@ -780,7 +861,9 @@
             s.push(`เมื่อเทียบกับ${prevL} สินทรัพย์${dA >= 0 ? "เพิ่มขึ้น" : "ลดลง"}ราว ${exnAmt(dA)} หนี้สิน${dL >= 0 ? "เพิ่มขึ้น" : "ลดลง"}ราว ${exnAmt(dL)}` +
               (dE != null && Math.abs(dE) > 1000 ? ` ${EQ}จึง${dE >= 0 ? "**เพิ่มขึ้น" : "!!ลดลง"}ราว ${exnAmt(dE)}${dE >= 0 ? "**" : "!!"}` : ""));
         }
-        F["bal.hero"] = { say: s };
+        F["bal.hero"] = { say: s,
+          script: T.ta != null && T.tl != null ? `มาที่ตัวเลขหลักของงบ บริษัทมีสินทรัพย์รวม ${bA(T.ta)} ในขณะที่หนี้สินรวมอยู่ที่ ${bA(T.tl)} ` +
+            (eqNeg ? `หนี้สินที่สูงกว่าสินทรัพย์ทำให้${EQ}ติดลบ ${bA(T.eq)}` : T.eq != null ? `${EQ}จึงเป็นบวก ${bA(T.eq)}` : "") : "" };
       }
       {
         const s = [];
@@ -791,7 +874,12 @@
         if (clTop && (!nclTop || Math.abs(clTop.v) > Math.abs(nclTop.v))) s.push(`หนี้ก้อนใหญ่ที่สุดคือ**${clTop.name}** ราว ${exnAmt(clTop.v)} ซึ่ง!!เป็นหนี้ระยะสั้นที่ต้องจ่ายภายใน 1 ปี!!` + (/กู้/.test(clTop.name) ? " และมีภาระดอกเบี้ย" : ""));
         else if (nclTop && Math.abs(nclTop.v) >= Math.max(1, T.tl || 0) * 0.05) s.push(`หนี้ก้อนใหญ่ของหนี้สินไม่หมุนเวียนคือ**${nclTop.name}** ราว ${exnAmt(nclTop.v)} ซึ่งไม่ต้องคืนภายใน 1 ปี` + (/กู้/.test(nclTop.name) ? " แต่!!มีภาระดอกเบี้ยต่อเนื่อง!!" : ""));
         if (cap > 0 && loss < 0) s.push(`และ!!ขาดทุนสะสมสูงกว่าทุนที่ชำระแล้วถึง ${(Math.abs(loss) / cap).toFixed(1)} เท่า!!`);
-        F["bal.table"] = { say: s };
+        const tA = [], tL = [];
+        if (T.ca != null) tA.push(`สินทรัพย์หมุนเวียนมี ${bA(T.ca)}` + (cashL ? ` ซึ่งเป็นเงินสด ${bA(cash)}` : ""));
+        if (T.cl != null) tL.push(`หนี้สินหมุนเวียนมี ${bA(T.cl)}`);
+        if (T.ncl != null) tL.push(`${tL.length ? "และ" : ""}หนี้สินไม่หมุนเวียนอีก ${bA(T.ncl)}`);
+        F["bal.table"] = { say: s,
+          script: tA.length || tL.length ? `ในรายละเอียดของงบ ${tA.join(" ")}${tL.length ? `${tA.length ? " ส่วนฝั่งหนี้สิน " : ""}${tL.join(" ")}` : ""}` : "" };
       }
       {
         const s = [];
@@ -803,7 +891,9 @@
           const nca = (T.ta && v(ncaRow)) ? v(ncaRow) / T.ta : 0;
           if (nca > 0.2) s.push(`เมื่อรวมแล้ว สินทรัพย์ไม่หมุนเวียนคิดเป็นราว ${exnP(nca * 100)} ของสินทรัพย์ทั้งหมด ซึ่ง!!เปลี่ยนเป็นเงินสดได้ช้า!!`);
         }
-        F["bal.assets"] = { say: s };
+        const c3 = comp.filter(x => x.pct > 0).slice(0, 3);
+        F["bal.assets"] = { say: s,
+          script: c3.length ? `ถ้าแยกสินทรัพย์ตามประเภท ส่วนใหญ่เป็น${c3[0].name} **${exnP(c3[0].pct * 100)}**` + (c3[1] ? ` รองลงมาคือ${c3[1].name} **${exnP(c3[1].pct * 100)}**` : "") + (c3[2] ? ` และ${c3[2].name} **${exnP(c3[2].pct * 100)}**` : "") : "" };
       }
       {
         const s = [];
@@ -814,7 +904,9 @@
           const dL = chg(m.totalLiab);
           if (prevL && dL != null && Math.abs(dL) > Math.max(1000, T.tl * 0.05)) s.push(`เมื่อเทียบกับ${prevL} หนี้สินรวม${dL > 0 ? "!!เพิ่มขึ้น" : "**ลดลง"}ราว ${exnAmt(dL)}${dL > 0 ? "!!" : "**"}`);
         }
-        F["bal.funding"] = { say: s };
+        const fS = [T.cl != null ? `หนี้สินหมุนเวียน ${bA(T.cl)}` : "", T.ncl != null ? `หนี้สินไม่หมุนเวียน ${bA(T.ncl)}` : ""].filter(Boolean);
+        F["bal.funding"] = { say: s,
+          script: T.tl != null && fS.length ? `ส่วนแหล่งเงินทุน บริษัทใช้เงินจาก${fS.join(" และ")}` + (T.eq != null ? ` ขณะที่${EQ}${eqNeg ? "ติดลบ" : "มี"} ${bA(T.eq)}` : "") : "" };
       }
       {
         const R = d.ratios || [];
@@ -827,7 +919,11 @@
         if (liqOk && capBad) s.push("สรุปคือ **ระยะสั้นยังไม่เร่งด่วน แต่โครงสร้างทุนในระยะยาวต้องแก้ไข**");
         else if (!liqOk && capBad) s.push("สรุปคือ !!ต้องดูแลทั้งการชำระหนี้ระยะสั้นและโครงสร้างทุนไปพร้อมกัน!!");
         else if (liqOk && !capBad && cr != null) s.push("สรุปคือ **อัตราส่วนหลักยังอยู่ในระดับที่รับได้**");
-        F["bal.ratios"] = { say: s };
+        // บทพูด: อ่านค่าตามแถวอัตราส่วนบนจอ (valueText) · "-1,234 บาท" → "ติดลบ 1,234 บาท" แบบพูด · ค่าที่คิดไม่ได้ = บอกเหตุผลที่หน้าเขียนไว้
+        const rv = t => { t = exnStrip(t); const mm = t.match(/^(-?[\d,]+(?:\.\d+)?)\s*บาท$/); if (!mm) return t; const x = Number(mm[1].replace(/,/g, "")); return (x < 0 ? "ติดลบ " : "") + exnAmt(x); };
+        const rt = r => { const x = rv(r.valueText).replace(/^-(?=\d)/, "ติดลบ "); return /\d/.test(x) ? `${exnShortName(r.name)}อยู่ที่ **${x}**` : `${exnShortName(r.name)}คำนวณไม่ได้เนื่องจาก**${x}**`; };
+        F["bal.ratios"] = { say: s,
+          script: R.length ? "สำหรับอัตราส่วนทางการเงิน " + R.map((r, i) => `${i ? (i === R.length - 1 ? " และ" : " ") : ""}${rt(r)}`).join("") : "" };
         const subs = R.filter(r => r.score != null).map(r => ({ name: r.name, score: r.score })).sort((a, b) => a.score - b.score);
         if (d.overallScore != null && subs.length) {
           const H = d.overallScore;
@@ -836,10 +932,14 @@
             `ด้านที่ฉุดคะแนนคือ!!${exnShortName(subs[0].name)}!!` + (subs[1] ? ` และ!!${exnShortName(subs[1].name)}!!` : ""),
             subs[subs.length - 1].score >= 60 ? `ส่วนจุดแข็งคือด้าน**${exnShortName(subs[subs.length - 1].name)}** ซึ่งควรรักษาไว้`
               : `ด้านที่ดีที่สุดตอนนี้คือ${exnShortName(subs[subs.length - 1].name)} แต่ก็ยังอยู่ใน${subs[subs.length - 1].score >= 45 ? "ระดับปานกลาง" : "!!ระดับที่ต้องปรับปรุง!!"}`,
-          ] };
+          ], script: (() => {   // บทพูด: เกจคะแนนรวม + คะแนนรายตัวตามลำดับบนจอ
+            const sc = R.filter(r => r.score != null);
+            return `สำหรับคะแนนฐานะการเงินรวม ได้ **${H} คะแนน** จาก 100 โดยแยกเป็น` + sc.map((r, i) => `${i ? (i === sc.length - 1 ? " และ" : " ") : ""}${exnShortName(r.name)} **${r.score}**`).join("");
+          })() };
         }
       }
-      F["bal.insight"] = { say: [
+      F["bal.insight"] = { script: `สรุปฐานะการเงิน ณ ${asofS} บริษัทมีสินทรัพย์ ${T.ta != null ? bA(T.ta) : "—"} หนี้สิน ${T.tl != null ? bA(T.tl) : "—"}` + (eqT ? ` และ${eqT}` : "") +
+          (cr != null ? ` โดยมีอัตราส่วนสภาพคล่อง **${cr.toFixed(2)} เท่า**` : "") + " จากตัวเลขเหล่านี้ จึงมีข้อเสนอแนะดังนี้", say: [
         eqNeg ? `โดยสรุป สภาพคล่องระยะสั้น${liqOkTxt ? "**ยังพอไหว** แต่" : "!!ตึงตัว!! และ"}!!ทุนติดลบจากขาดทุนสะสม โดยเงินทุนส่วนใหญ่มาจากหนี้!!` : `โดยสรุป **ฐานะการเงินมั่นคง ${EQ}เป็นบวก**` + (liqOkTxt ? " และสภาพคล่องยังพอไหว" : " แต่!!สภาพคล่องระยะสั้นยังตึงตัว!!"),
         ...((d.recs || []).slice(0, 2).map((r, i) => exnRecPt(r, i))),
         "ขอจบส่วนงบแสดงฐานะการเงินไว้เท่านี้",
@@ -1085,7 +1185,7 @@
     #exnScript .exn-note{font-size:14.5px;line-height:1.55;color:#1e1b4b;background:rgba(250,204,21,.16);border-left:3px solid #f59e0b;border-radius:8px;padding:6px 10px;margin:4px 0;white-space:pre-wrap}
     #exnScript .exn-nb{border:none;background:none;color:#6d28d9;font:inherit;font-size:13px;font-weight:600;padding:4px 2px;cursor:pointer}
     #exnScript .exn-msg{font-size:13px;color:#64748b;background:rgba(241,245,249,.7);border-radius:9px;padding:8px 10px;margin:6px 0}
-    :root{--exn-scw:min(380px,36vw)}
+    :root{--exn-scw:min(420px,36vw)}   /* ★ 380→420 (Benya 2026-11-26): แผงกว้างเท่ากันทุกแบบ สลับแบบแล้วหน้าไม่กระตุก ปุ่ม 3 อันไม่ตกบรรทัด */
     body.exn-sc-open .app,body.exn-sc-open .app.sb-collapsed{grid-template-columns:1fr!important}
     body.exn-sc-open .sb,body.exn-sc-open .sb-scrim{display:none!important}
     body.exn-sc-open .main{padding-left:var(--exn-scw)}
@@ -1111,6 +1211,16 @@
     #exnScript .exn-psy{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap;flex:none}
     #exnScript .exn-psy.ok{color:#047857;background:#d1fae5}#exnScript .exn-psy.bad{color:#b91c1c;background:#fee2e2}
     #exnScript .exn-psy.idle{color:#fff;background:linear-gradient(135deg,#7c3aed,#4f46e5);box-shadow:0 4px 10px rgba(79,70,229,.25)}
+    #exnScript .exn-mode{display:flex;gap:4px;margin:0 12px 8px;padding:3px;background:rgba(15,23,42,.05);border-radius:12px}
+    #exnScript .exn-mode button{flex:1 1 0;min-width:0;border:none;background:none;border-radius:9px;padding:6px 4px;font:inherit;font-size:12px;font-weight:700;line-height:1.3;color:#475569;cursor:pointer;white-space:normal;text-align:center}
+    #exnScript .exn-mode button.on{background:#fff;color:#4c1d95;box-shadow:0 2px 6px rgba(15,23,42,.12)}
+    #exnScript .exn-lbl{display:inline-flex;align-items:center;font-size:11.5px;font-weight:800;letter-spacing:.3px;padding:2px 10px;border-radius:999px;margin:0 0 4px}
+    #exnScript .exn-lbl.scr{color:#fff;background:#0284c7}
+    #exnScript .exn-lbl.ana{color:#fff;background:#7c3aed}
+    #exnScript .exn-scr{background:linear-gradient(180deg,rgba(14,165,233,.12),rgba(14,165,233,.05));border:1px solid rgba(14,165,233,.3);border-left:5px solid #0284c7;border-radius:12px;padding:8px 12px 10px;margin:6px 0 8px}
+    #exnScript .exn-scr-t{font-size:17.5px;line-height:1.8;color:#0c4a6e}
+    #exnScript .exn-scr mark.exn-em{background:linear-gradient(180deg,transparent 58%,rgba(56,189,248,.45) 58%);color:#075985;font-weight:800;padding:0 1px}
+    #exnScript .exn-ana{background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.22);border-left:5px solid #7c3aed;border-radius:12px;padding:7px 12px 4px;margin:0 0 6px}
     #exnScript .exn-nav{display:flex;gap:8px;padding:10px 12px 12px;border-top:1px solid rgba(124,58,237,.14);background:rgba(255,255,255,.7)}
     #exnScript .exn-nav button{border:none;border-radius:14px;font:inherit;cursor:pointer;padding:12px 12px;line-height:1.25;text-align:left}
     #exnScript .exn-nav .pv{flex:none;width:74px;background:#ede9fe;color:#5b21b6;font-weight:700;font-size:15px;text-align:center}
@@ -1328,6 +1438,69 @@
   function exnPsyPush(){ try{ if(window.Psy && window.Psy.push) window.Psy.push(); }catch(e){} }
   function exnFindFrame(key){ return EXN.scope ? EXN.scope.querySelector(`[data-exn~="${key}"]`) : null; }
   function exnRelayout(){ setTimeout(() => { try{ window.dispatchEvent(new Event("resize")); }catch(e){} }, 80); }   // กราฟวาดตามความกว้างใหม่
+  /* ★ แผงมี 3 แบบ (ยก Benya 2026-11-26 · ผู้ใช้: "แบ่งเป็น 3 แบบ และเราสามารถเลือกได้ว่าอยากอ่านบทไหน")
+       "split" = 🎤 พูด + ✦ วิเคราะห์ — บทพูด (F[k].script) กับบทวิเคราะห์ครบทุกข้อ แยก 2 กรอบ
+       "ana"   = ✦ วิเคราะห์อย่างเดียว — แบบเดิมก่อนมีบทพูด
+       "both"  = 🎤 พูดรวมวิเคราะห์ (ค่าเริ่มต้น) — ข้อความเดียว = บทพูด + บทวิเคราะห์ไม่เกิน 2 ข้อ (exnTalk) + "ขอจบส่วน…" ถ้ามี
+     เลือกแล้วจำต่อเครื่อง (bdh-exn-scmode) · กล่องที่เด้งข้างกรอบยังเป็นบทวิเคราะห์เหมือนเดิม
+     exnTalk: ข้อแรกของบทวิเคราะห์ POG เปิดเรื่องด้วยตัวเลขหลัก ซ้ำกับบทพูด → ตัดทิ้ง (EXN_TALK_DROP) · ข้อที่มีความหมายแต่ขึ้นต้นซ้ำ
+       → แก้คำขึ้นต้นให้ต่อจากบทพูดได้ลื่น (EXN_TALK_SUB · ทำก่อน DROP) · กรอบที่ไม่มีบทพูด (เช่น "รายได้ 100 บาท ไปไหน") ใช้บทวิเคราะห์ตามเดิม
+     ★ กฎผูกกับคำขึ้นต้นในบทวิเคราะห์ (exnDrafts / exnFinDrafts) — แก้คำขึ้นต้นตรงนั้นต้องแก้กฎตรงนี้ด้วย
+       [regex, แทนด้วย, กรอบ?] / regex หรือ [regex, กรอบ] — "กรอบ" = ใช้เฉพาะกรอบที่ key ขึ้นต้นแบบนี้ */
+  const EXN_TALK_SUB = [
+    // งบกระแสเงินสด
+    [/^ถ้าแยกตามกิจกรรม เริ่มจาก\*\*กิจกรรมดำเนินงาน\*\*ซึ่งเป็นธุรกิจหลัก .*? หรือทุก 100 บาท/, "ในส่วนการดำเนินงาน ทุก 100 บาท"],
+    [/^ต่อมาเป็นกราฟรายเดือน ซึ่งช่วยให้เห็นจังหวะเงินเข้าออกแต่ละเดือน จะเห็นว่า/, "ทั้งนี้ "],
+    [/ ส่วนเดือนที่ดีที่สุดคือ.*$/, "", "summary.monthly"],   // บทพูดพูดเดือนที่ดีที่สุดแบบรวมทุกกิจกรรมไปแล้ว (คนละแบบกับข้อนี้)
+    [/^ถ้าดูเฉพาะการดำเนินงาน เดือนที่หนักที่สุดคือ(\*\*[^*]+\*\*) ใช้เงินสุทธิราว \S+ \S*บาท สาเหตุหลักมาจาก/, "ที่เดือน$1 ใช้เงินมาก สาเหตุหลักมาจาก"],
+    [/^ค่าใช้จ่ายต่อยอดขาย [\d.]+% หมายความว่า/, "ตัวเลขค่าใช้จ่ายต่อยอดขายนี้หมายความว่า"],
+    [/^ขอพาเข้ามาดูตามหมวด ฝั่งรายจ่ายดำเนินงาน หมวดที่ใหญ่ที่สุดคือ.+? สามหมวดนี้คิดเป็น/, "ในฝั่งรายจ่ายดำเนินงาน สามหมวดแรกรวมกันคิดเป็น"],
+    [/^เมื่อเทียบเงินจ่ายแต่ละหมวด.+? โดยจ่ายให้/, "ก้อนใหญ่ที่สุดของหมวดนี้จ่ายให้"],
+    [/^ต่อมาเป็นยอดเงินแยกตามบัญชี .+? โดยส่วนใหญ่ /, "เท่ากับว่าเงิน "],
+    [/\s*···\s*(\d+)/g, " ลงท้าย $1"],   // เลขบัญชีแบบย่อ "KBANK ···6816" → อ่านออกเสียง "KBANK ลงท้าย 6816"
+    // งบกำไรขาดทุน
+    [/^คิดเป็นอัตรากำไรขั้นต้น \*\*[^*]+\*\* หมายความว่า/, "อัตรากำไรขั้นต้นนี้หมายความว่า"],
+    [/^เทียบกับที่ทำได้จริงเฉลี่ยเดือนละ \S+ \S*บาท หรือ/, "หรือคิดเป็น"],
+    [/^เมื่อดูเป็นรายเดือน /, "ทั้งนี้ "],
+    [/^ถ้าจะให้ถึงเป้า /, "ถ้าจะให้รายได้ถึงเป้า "],   // บทพูดจบที่เป้ากำไร → บอกให้ชัดว่าเป็นเป้ารายได้
+    [/^ค่าใช้จ่ายขายและบริหารรวมดอกเบี้ยใช้ไปแล้ว \S+ ของงบทั้งปี( ซึ่ง)?/, "ส่วนค่าใช้จ่ายที่ใช้ไป"],
+    // งบแสดงฐานะการเงิน
+    [/^ในตารางงบ /, ""],
+    [/^ถ้าดูโครงสร้างสินทรัพย์ \*\*[^*]+\*\* ซึ่ง(?=\*\*เป็นเงินสด)/, "ส่วนใหญ่จึง"],
+    [/^ถ้าดูโครงสร้างสินทรัพย์ \*\*[^*]+\*\* ซึ่ง/, "แปลว่า"],
+    [/^ถ้าดูโครงสร้างสินทรัพย์ \*\*[^*]+\*\*\s*/, ""],
+    [/^ด้านแหล่งเงินทุน (!![^!]+!!) เพราะ.+$/, "แปลว่า$1"],   // บทพูดเพิ่งพูด "ทุนติดลบ" ไป ไม่ต้องซ้ำ
+    [/^ด้านแหล่งเงินทุน /, ""],
+    [/^ต่อมาเป็นอัตราส่วนทางการเงิน ด้านสภาพคล่อง /, "ด้านสภาพคล่อง "],
+    [/^เมื่อรวมทุกอัตราส่วนเป็นคะแนนเดียว ฐานะการเงินรวมอยู่ที่ \d+ คะแนน ซึ่ง/, "คะแนนรวมนี้"],
+  ];
+  const EXN_TALK_DROP = [
+    // งบกระแสเงินสด
+    /^วันนี้ขอสรุปกระแสเงินสด/, /^ภาพรวม(เดือนนี้|ช่วงนี้) เงินสดของบริษัท/, /^เริ่มจากภาพรวมรับ–จ่าย/, /^ทั้งนี้ เงินรับรวมตัวนี้/, /^มาที่เงินสดปลายงวด/,
+    /^ถ้าแยกตามกิจกรรม เริ่มจาก/, /^ด้านกิจกรรมลงทุน /, /^ถ้าดูเฉพาะการดำเนินงาน เดือนที่หนักที่สุดคือ\*\*[^*]+\*\* ใช้เงินสุทธิราว \S+ \S*บาท$/,
+    /^ต่อมาเป็นตัวชี้วัดทางการเงิน/, /^ส่วนค่าใช้จ่ายพนักงานคิดเป็น/, /^ขอพาเข้ามาดูตามหมวด/, /หมวดที่สูงผิดปกติที่สุดคือ/, /ไม่มีหมวดที่สูงผิดปกติ\*\*$/, /^ภาพรวมเงินจ่าย/,
+    /อยู่ในบัญชีเดียว/, /^รองลงมาคือบัญชี/, /^ส่วนนี้เป็นรายการเดินบัญชีทั้งหมด/, /^ได้แก่/, /^ต่อไปเป็นงบกระแสเงินสดรายเดือน/, /^สุดท้ายเรื่องความเพียงพอ/, /^ด้วย(เงินสดที่มีอยู่|เงินที่ใช้ได้จริง)ราว/,
+    // งบกำไรขาดทุน
+    /^ต่อไปเป็นงบกำไรขาดทุน/, /^(ช่วงนี้|เดือนนี้)บริษัทมีรายได้จากการขาย/, /^เริ่มจากรายได้ลงไปถึงกำไร/, /^แต่ค่าใช้จ่ายขายและบริหารรวมดอกเบี้ยสูงถึง/, /^และ!!รายได้อื่นติดลบ/,
+    /^จุดคุ้มทุนคือระดับรายได้/, /^ด้านรายได้ /, /^รายได้แต่ละเดือนขึ้นกับงวดงาน/, /^ต่อมาดูว่าเงินถูกใช้ไปกับอะไร/, /^เมื่อเทียบกับงบประมาณประจำปี ผ่านไป/, /^โดยสรุป/,
+    // งบแสดงฐานะการเงิน
+    /^ต่อไปเป็นงบแสดงฐานะ/, /^เริ่มจากตัวเลขหลัก/, [/^รองลงมาคือ/, "bal.assets"], /^หรือมีเงินทุนหมุนเวียนสุทธิ/,
+  ];
+  const EXN_TALK_END = /^ขอจบส่วน/;   // ประโยคปิดงบ — ต่อท้ายเสมอ ไม่นับในโควตา 2 ข้อ
+  function exnTalk(dr, key){
+    if(!dr) return "";
+    const inSc = sc => !sc || String(key || "").startsWith(sc);
+    let pts = (Array.isArray(dr.say) ? dr.say : [dr.say]).filter(Boolean).map(String);
+    if(dr.script){
+      pts = pts.map(s => EXN_TALK_SUB.reduce((t, [re, to, sc]) => inSc(sc) ? t.replace(re, to) : t, s).trim())
+        .filter(s => s && !EXN_TALK_DROP.some(r => Array.isArray(r) ? inSc(r[1]) && r[0].test(s) : r.test(s)));
+    }
+    const end = pts.filter(s => EXN_TALK_END.test(s)), body = pts.filter(s => !EXN_TALK_END.test(s)).slice(0, 2);
+    return [dr.script || "", ...body, ...end].filter(Boolean).join(" ");
+  }
+  const EXN_SC_MODES = ["split", "ana", "both"];
+  function exnScModeGet(){ try{ const v = localStorage.getItem("bdh-exn-scmode"); return EXN_SC_MODES.includes(v) ? v : "both"; }catch(e){ return "both"; } }
+  function exnScModeSet(v){ try{ localStorage.setItem("bdh-exn-scmode", EXN_SC_MODES.includes(v) ? v : "both"); }catch(e){} exnRenderScript(); exnScriptActivate(window._exnScActive, true); }
   function exnScriptToggle(v){
     exnScSet(v == null ? !exnScGet() : !!v);
     exnCloseMenu(); exnClosePop();
@@ -1336,7 +1509,7 @@
   }
   function exnOneToggle(v){ exnOneSet(!!v); exnRenderScript(); exnScriptActivate(window._exnScActive, true); }
   function exnScriptHtml(C){
-    const S = exnState(), notes = S.notes[C.period] || {}, one = exnOneGet();
+    const S = exnState(), notes = S.notes[C.period] || {}, one = exnOneGet(), mode = exnScModeGet();
     const esc2 = s => (typeof esc === "function" ? esc(s) : String(s));
     const cur = C.tab;
     let active = window._exnScActive;
@@ -1350,8 +1523,12 @@
       const pts = dr && dr.say ? (Array.isArray(dr.say) ? dr.say : [dr.say]).filter(Boolean) : [];
       const saved = (notes[f.key] && notes[f.key].note) || "";
       const act = f.key === active, other = !!(cur && f.tab !== cur);
+      const talk = mode === "both" ? exnTalk(dr, f.key) : mode === "split" ? (dr && dr.script) || "" : "";
+      const scr = talk ? `<div class="exn-scr"><span class="exn-lbl scr">${mode === "both" ? "🎤 บทพูดพร้อมวิเคราะห์" : "🎤 บทพูด · อ่านออกเสียง"}</span><div class="exn-scr-t">${exnFmtSay(talk)}</div></div>` : "";
+      const anaList = mode !== "both" && pts.length ? `<ul class="exn-pts">${pts.map(s => `<li>${exnFmtSay(s)}</li>`).join("")}</ul>` : "";
+      const ana = mode === "split" && anaList ? `<div class="exn-ana"><span class="exn-lbl ana">✦ บทวิเคราะห์</span>${anaList}</div>` : anaList;
       const body = (!one || act) ? `<div class="exn-sb">
-          ${pts.length ? `<ul class="exn-pts">${pts.map(s => `<li>${exnFmtSay(s)}</li>`).join("")}</ul>` : `<div class="exn-msg">${C.drafts ? "กรอบนี้ไม่มีบทวิเคราะห์สำหรับช่วงที่เลือก" : C.noDraftMsg}</div>`}
+          ${scr}${ana}${!scr && !anaList ? `<div class="exn-msg">${C.drafts ? "กรอบนี้ไม่มีบทวิเคราะห์สำหรับช่วงที่เลือก" : C.noDraftMsg}</div>` : ""}
           ${saved.trim() ? `<div class="exn-note">${esc2(saved)}</div>` : ""}
           <button type="button" class="exn-nb" onclick="Exn.exnScriptEdit('${f.key}')">✎ ${saved.trim() ? "แก้โน้ตของฉัน" : "เพิ่มโน้ตของฉัน"}</button>
         </div>` : "";
@@ -1361,7 +1538,9 @@
     const P = window.Psy, cast = !!(P && P.remoteOn && P.remoteOn());
     // ป้ายแคส: present_sync.js ระบายเอง (Psy.paintStatus) — ถือจอ = "กำลังแคส" · ไม่ได้ถือ = "แคสจากเครื่องนี้" (กดรับจอ) · ส่งไม่สำเร็จ
     const psy = cast ? `<span id="exnPsyTag" class="exn-psy ok">📡 กำลังแคส</span>` : "";
+    const modes = [["split", "🎤 พูด + ✦ วิเคราะห์", "บทพูดกับบทวิเคราะห์ แยกเป็น 2 กรอบ"], ["ana", "✦ วิเคราะห์อย่างเดียว", "บทวิเคราะห์อย่างเดียว"], ["both", "🎤 พูดรวมวิเคราะห์", "บทพูดพร้อมวิเคราะห์ เป็นข้อความเดียว"]];
     return `<div class="exn-shd"><span class="exn-badge">✦ บทพูดทั้งหน้า</span><span class="exn-sc">${esc2(C.scopeLbl)}</span>${psy}<button type="button" class="exn-x" onclick="Exn.exnScriptToggle(false)" title="ปิดแผง">×</button></div>
+      <div class="exn-mode">${modes.map(([v, l, t]) => `<button type="button" class="${mode === v ? "on" : ""}" title="${t}" onclick="Exn.exnScModeSet('${v}')">${l}</button>`).join("")}</div>
       <div class="exn-sbar"><label class="exn-one"><input type="checkbox" ${one ? "checked" : ""} onchange="Exn.exnOneToggle(this.checked)"> ทีละเรื่อง</label><span>${exnHoverDev() ? "ชี้" : "แตะ"}กรอบบนจอ = ไปที่บทพูดของกรอบนั้น</span></div>
       ${S.err ? `<div class="exn-err" style="margin:8px 12px 0">${esc2(S.err)}</div>` : ""}
       <div class="exn-sl" id="exnScList">${list}</div>
@@ -1577,8 +1756,8 @@
 
   /* ปุ่ม/ช่องในกล่องเรียกผ่าน window.Exn.<ชื่อ> · หน้าเรียก window.exnMount / exnMountFin / exnUnmount */
   window.Exn = { exnClosePop, exnEditNote, exnInput, exnOpenFromMenu, exnSave, exnSetTap, exnPsyToggle,
-    exnScriptToggle, exnOneToggle, exnScriptGo, exnScriptEdit, exnDeckStep,   // แผงบทพูดทั้งหน้า
-    exnContext,   // ทดสอบ: Exn.exnContext().drafts = บทพูดของหน้าที่เปิดอยู่
+    exnScriptToggle, exnOneToggle, exnScriptGo, exnScriptEdit, exnDeckStep, exnScModeSet,   // แผงบทพูดทั้งหน้า (+ ปุ่มเลือก 3 แบบ)
+    exnContext, exnTalk,   // ทดสอบ: Exn.exnContext().drafts = บทพูดของหน้าที่เปิดอยู่ · Exn.exnTalk(drafts[key], key) = ข้อความแบบ "พูดรวมวิเคราะห์"
     exnBindTargets, exnRenderFab, exnRenderScript };   // ↑ 3 ตัวท้ายให้ present_sync.js (ติดป้ายกรอบบนจอทีวี · ปุ่ม ✦ · ป้ายแคสในแผงบทพูด)
   window.exnMount = exnMount; window.exnMountFin = exnMountFin; window.exnUnmount = exnUnmount;
 })();
