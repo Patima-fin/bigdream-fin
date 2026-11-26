@@ -1032,7 +1032,7 @@ function edRenderSummary(){
       </div>
     </div>
 
-    <div data-ed-usable></div>   <!-- ★ การ์ด "เงินสดนี้ใช้ได้จริงเท่าไร" (React · edMountUsable) ก่อน KPI — ผู้ใช้ขอคืน 2026-11-25 -->
+    <!-- ★ BIGDREAM: ไม่มีการ์ด "เงินสดนี้ใช้ได้จริงเท่าไร" (ผู้ใช้ 2026-11-26 "บิ๊กดรีมไม่ต้องมี") — POG/BIO วางไว้ตรงนี้ -->
 
     ${edRenderFinKpis(A, d.data, d.monthFilter)}
   `;
@@ -3157,7 +3157,7 @@ body.present-mode .ced .ed-hide-present{display:none!important}
   window.CashFlowPresentPage = CashFlowPresentPage;
   window.CfpEd = { edDrillAcct, edDrillActivity, edDrillActivityIO, edDrillCat, edDrillCatAct, edDrillCatMonth, edDrillFinKpi, edDrillOpenClose, edDrillOpenCloseMonth, edDrillStmt, edDrillSummary, edExpSet, edExpSort, edExportFullPDF, edExportStmtXlsx, edExportTxs, edHook, edPrint, edSave, edSetMonth, edSetTab, edState, edStmtAcct, edStmtToggle, edTogglePresent, edToggleStmtTall,
     // ↓ ให้ exec_notes.js (โน้ตผู้นำเสนอ) คำนวณจากข้อมูลชุดเดียวกับหน้าจอ
-    edAgg, edScopeMonthKeys, edAnomalyData, edScopeLabel, edUsableSummary };
+    edAgg, edScopeMonthKeys, edAnomalyData, edScopeLabel };   // ★ BIGDREAM: ไม่ส่ง edUsableSummary (ไม่มีการ์ดเงินสดใช้ได้จริง → บทวิเคราะห์ใช้เงินสดทั้งก้อน)
   /* ★ เปิดตัวอ่าน + ค่าคงที่ให้หน้า #cf_coding เรียกข้ามไฟล์ได้ — หน้านั้นสร้าง AOA
      รูปเดียวกับไฟล์ที่คนอัปมือ แล้วส่งผ่านตัวอ่านชุดนี้ ⇒ ข้อมูลที่ลงเอยเหมือนกัน
      เป๊ะกับการ "ส่งออกแล้วอัปกลับ" โดยไม่ต้องเขียนตัวแปลงซ้ำ (กันสูตรสองชุดเพี้ยนกัน) */
