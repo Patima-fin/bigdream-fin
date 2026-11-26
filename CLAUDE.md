@@ -34,7 +34,7 @@ data layer: `data.js` (shape + cache) → `data_sync.js` / `data_supabase.js` (s
 
 | route | เมนู | component | ไฟล์ |
 |---|---|---|---|
-| `cashflow_present` | Executive Cash Flow | `CashFlowPresentPage` | `page_cashflow_present.jsx` |
+| `cashflow_present` | งบกระแสเงินสด (เดิม Executive Cash Flow) | `CashFlowPresentPage` | `page_cashflow_present.jsx` |
 | `bank_diary` | Bank Daily | `BankDiaryPage` | `page_bank_diary.jsx` |
 | `receipts` | ประวัติรับเงิน | `ReceiptsPage` | `page_receipts.jsx` |
 | `cf_coding` | งบกระทบยอดกระแสเงินสด | `CfCodingPage` | `page_cf_coding.jsx` |
@@ -467,3 +467,20 @@ snapshot ใน `cashflowSnapshots` เก็บ `takenAt` (ISO) + `enteredBy` (
   index ดิบเลื่อนตามจุลภาคที่แทรกเข้ามา · ทศนิยมตัดที่ 2 ตำแหน่ง · ปล่อยให้พิมพ์ค้าง `"1,200."` ได้
 - หมายเหตุที่พิมพ์เอง**มาก่อน** ข้อความตั้งต้น (`FLOAT_AP_REMARK` ใช้เฉพาะตอนเว้นว่าง) แล้วต่อท้ายด้วย
   `· คัดจาก <เลขที่ PV>` เสมอ — ยังตามรอยได้ว่าคัดมาจากใบไหน
+
+## 2026-11-26 — บัญชีผู้นำเสนอ + โหมด "✦ บทวิเคราะห์" + หน้างบกระแสเงินสดแบบ POG (สีเขียว BIGDREAM เดิม)
+
+ผู้ใช้: "ทำให้บิ๊กดรีมด้วย" — ชุดเดียวกับที่ทำให้ BIOAXEL วันที่ 25 พ.ย. (BIO 4204824 · dbb2d9f · dbe49e5) · ต่างที่ BIGDREAM ไม่มีหน้า P&L/งบฐานะ
+- **เมนู:** กลุ่ม "แดชบอร์ด" → **"งบการเงิน"** (key `dash` คงไว้) · "Executive Cash Flow" → **"งบกระแสเงินสด"**
+- **บัญชีผู้นำเสนอ (role `presenter`):** ดูอย่างเดียว เห็นแค่งบกระแสเงินสด · Auth user ชื่อ `WTP_CONFIG.PRESENTER_USERNAME` (`presenter`)
+  role presenter สร้างที่ `tools/supabase-auth-setup.html` (รหัสของบัญชีนี้ = รหัสพิเศษ) · คนที่ติ๊ก "🎤 เข้าบัญชีผู้นำเสนอได้"
+  (`users.canPresent='true'`) พิมพ์ชื่อตัวเอง + รหัสพิเศษ → `WTPData.authSignInPresenterAlias` (data_supabase.js) · sidebar/Audit Log บอกว่าใครเข้า
+  · `_wtpRoleIsReadOnly()` นับ presenter · RLS: presenter ไม่อยู่ใน staff/manager = เขียนอะไรไม่ได้ ยกเว้น `execNotes`
+- **โหมดบทวิเคราะห์:** `app/exec_notes.js` (plain script · ชุดเดียวกับ BIO แค่ `bdh-session`) — ชี้กรอบ `data-exn` → คำพูดที่ร่างจากตัวเลข +
+  "โน้ตของฉัน" เก็บตาราง Supabase `execNotes` (∈ `SHEET_TABLES`) · **ต้องรัน `supabase/exec-notes.sql` ในโปรเจกต์ BIGDREAM ก่อน**
+  (ท้ายไฟล์มี `notify pgrst, 'reload schema'` — BIO รันแล้วยังเจอ "Could not find the table … in the schema cache" เพราะไม่มีบรรทัดนี้)
+- **หน้างบกระแสเงินสด:** หน้าตาแบบ POG ทั้งหน้า (5 แท็บ · ช่วงเวลา · KPI · ป๊อปอัพ · Excel/PDF) + การ์ด "💰 เงินสดนี้ใช้ได้จริงเท่าไร"
+  ก่อน KPI · ตัวอ่านไฟล์ (`cfpParseStm`/`cfpParseSummary`…) ของเดิมไม่แตะ · สีเขียว BIGDREAM (#3ea45f / #2b8a4c) ·
+  ค่าเริ่มต้นประเภทบัญชี `CFP_ACCT_TYPE_DEF` = ชุดเดิม (เลขบัญชีติดมาจาก BIO ตอน fork — กด ✏️ จัดประเภทบัญชี ตั้งของจริงได้)
+  · ไฟล์ประกอบจากไฟล์ของ POG + ตัวอ่านเดิม (สคริปต์อยู่นอก repo) — ถ้าแก้หน้าตาให้แก้คู่กับ POG/BIO
+- ทดสอบใน harness (Supabase ปลอมจำลอง RLS): ล็อกอิน 4 กรณี · ผู้นำเสนอเห็นเมนูเดียว ไม่มีปุ่มอัปโหลด · บทวิเคราะห์ขึ้นครบ · บันทึกโน้ตได้ · ไม่มีการเขียนตารางอื่น

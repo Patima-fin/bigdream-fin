@@ -823,7 +823,7 @@ function _wtpRoleIsReadOnly() {
   try {
     const s = JSON.parse(localStorage.getItem('bdh-session') || 'null');
     const role = (s && s.role) || 'viewer';
-    return role === 'owner' || role === 'viewer';
+    return role === 'owner' || role === 'viewer' || role === 'presenter';
   } catch (_) { return false; }
 }
 const WTPOverride = {
